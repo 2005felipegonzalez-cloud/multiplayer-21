@@ -8,46 +8,60 @@ const io = new Server(server, { cors: { origin: "*" } });
 app.use(express.static('public'));
 
 let rooms = {};
+let users = {}; // Stores { username: { password, gems } }
 
 io.on('connection', (socket) => {
-    // Send the list of active rooms to the new player
-    socket.emit('roomList', Object.keys(rooms));
+    let currentUser = null;
+
+    socket.on('auth', ({ username, password }) => {
+        if (!users[username]) {
+            users[username] = { password, gems: 100 };
+        }
+        if (users[username].password === password) {
+            currentUser = username;
+            socket.emit('authSuccess', { username, gems: users[username].gems });
+            socket.emit('roomList', Object.keys(rooms));
+        } else {
+            socket.emit('authError', 'Wrong password!');
+        }
+    });
 
     socket.on('joinRoom', (roomId) => {
+        if (!currentUser) return;
         socket.join(roomId);
         if (!rooms[roomId]) {
             rooms[roomId] = { 
                 players: [], 
                 dealer: { hand: [], score: 0 }, 
-                deck: createDeck(),
-                gameStarted: false 
+                deck: [],
+                phase: 'betting' // Phases: betting, playing, results
             };
         }
-        
-        // Only add player if they aren't already in
-        if (!rooms[roomId].players.find(p => p.id === socket.id)) {
-            rooms[roomId].players.push({ id: socket.id, hand: [], score: 0, status: 'playing' });
+        if (!rooms[roomId].players.find(p => p.name === currentUser)) {
+            rooms[roomId].players.push({ 
+                id: socket.id, name: currentUser, hand: [], 
+                score: 0, bet: 0, status: 'waiting' 
+            });
         }
-        
         io.to(roomId).emit('updateGame', rooms[roomId]);
-        io.emit('roomList', Object.keys(rooms)); // Update global room list
     });
 
-    socket.on('startGame', (roomId) => {
+    socket.on('placeBet', ({ roomId, amount }) => {
         const room = rooms[roomId];
-        room.deck = createDeck();
-        room.gameStarted = true;
-        
-        // Deal 2 cards to every player and the dealer
-        room.players.forEach(p => {
-            p.hand = [room.deck.pop(), room.deck.pop()];
-            p.score = calculateScore(p.hand);
-            p.status = 'playing';
-        });
-        room.dealer.hand = [room.deck.pop(), room.deck.pop()];
-        room.dealer.score = calculateScore(room.dealer.hand);
-
-        io.to(roomId).emit('updateGame', room);
+        const player = room.players.find(p => p.name === currentUser);
+        if (player && users[currentUser].gems >= amount) {
+            player.bet = amount;
+            users[currentUser].gems -= amount;
+            player.status = 'ready';
+            
+            // If everyone has bet, start the game
+            if (room.players.every(p => p.status === 'ready')) {
+                startGame(room, roomId);
+            } else {
+                io.to(roomId).emit('updateGame', room);
+            }
+            socket.emit('updateBalance', users[currentUser].gems);
+        }
     });
 
     socket.on('hit', (roomId) => {
@@ -57,7 +71,7 @@ io.on('connection', (socket) => {
             player.hand.push(room.deck.pop());
             player.score = calculateScore(player.hand);
             if (player.score > 21) player.status = 'bust';
-            io.to(roomId).emit('updateGame', room);
+            checkDealerTurn(room, roomId);
         }
     });
 
@@ -66,22 +80,49 @@ io.on('connection', (socket) => {
         const player = room.players.find(p => p.id === socket.id);
         if (player) {
             player.status = 'stood';
-            
-            // If all players are done, Dealer plays
-            const activePlayers = room.players.filter(p => p.status === 'playing');
-            if (activePlayers.length === 0) {
-                while (room.dealer.score < 17) {
-                    room.dealer.hand.push(room.deck.pop());
-                    room.dealer.score = calculateScore(room.dealer.hand);
-                }
-                io.to(roomId).emit('updateGame', room);
-                io.to(roomId).emit('gameOver', determineWinners(room));
-            } else {
-                io.to(roomId).emit('updateGame', room);
-            }
+            checkDealerTurn(room, roomId);
         }
     });
 });
+
+function startGame(room, roomId) {
+    room.phase = 'playing';
+    room.deck = createDeck();
+    room.dealer.hand = [room.deck.pop(), room.deck.pop()];
+    room.dealer.score = calculateScore(room.dealer.hand);
+    room.players.forEach(p => {
+        p.hand = [room.deck.pop(), room.deck.pop()];
+        p.score = calculateScore(p.hand);
+        p.status = 'playing';
+    });
+    io.to(roomId).emit('updateGame', room);
+}
+
+function checkDealerTurn(room, roomId) {
+    const active = room.players.filter(p => p.status === 'playing');
+    if (active.length === 0) {
+        room.phase = 'results';
+        while (room.dealer.score < 17) {
+            room.dealer.hand.push(room.deck.pop());
+            room.dealer.score = calculateScore(room.dealer.hand);
+        }
+        resolveBets(room);
+        io.to(roomId).emit('updateGame', room);
+    } else {
+        io.to(roomId).emit('updateGame', room);
+    }
+}
+
+function resolveBets(room) {
+    room.players.forEach(p => {
+        if (p.status !== 'bust' && (p.score > room.dealer.score || room.dealer.score > 21)) {
+            users[p.name].gems += p.bet * 2; // Win
+        } else if (p.score === room.dealer.score) {
+            users[p.name].gems += p.bet; // Push
+        }
+        p.bet = 0; // Reset bet for next round
+    });
+}
 
 function createDeck() {
     const suits = ['♠', '♥', '♦', '♣'], vals = ['2','3','4','5','6','7','8','9','10','J','Q','K','A'];
@@ -99,15 +140,6 @@ function calculateScore(hand) {
     });
     while (score > 21 && aces > 0) { score -= 10; aces--; }
     return score;
-}
-
-function determineWinners(room) {
-    return room.players.map(p => {
-        if (p.score > 21) return `Player ${p.id.substring(0,4)} Busts!`;
-        if (room.dealer.score > 21 || p.score > room.dealer.score) return `Player ${p.id.substring(0,4)} Wins!`;
-        if (p.score === room.dealer.score) return `Player ${p.id.substring(0,4)} Push (Tie)`;
-        return `Player ${p.id.substring(0,4)} Loses`;
-    }).join(' | ');
 }
 
 server.listen(process.env.PORT || 3000);
