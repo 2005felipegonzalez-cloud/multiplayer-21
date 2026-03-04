@@ -7,7 +7,12 @@ const io = new Server(server, { cors: { origin: "*" } });
 
 app.use(express.static('public'));
 
-let rooms = {};
+// 1. Pre-built rooms
+let rooms = {
+    "The Lounge": { players: [], dealer: { hand: [], score: 0 }, phase: 'betting', deck: [], minBet: 10 },
+    "High Roller": { players: [], dealer: { hand: [], score: 0 }, phase: 'betting', deck: [], minBet: 100 },
+    "VIP Suite": { players: [], dealer: { hand: [], score: 0 }, phase: 'betting', deck: [], minBet: 500 }
+};
 let users = {}; 
 
 io.on('connection', (socket) => {
@@ -15,26 +20,26 @@ io.on('connection', (socket) => {
     socket.emit('roomList', Object.keys(rooms));
 
     socket.on('auth', ({ username, password }) => {
-        if (!users[username]) users[username] = { password, gems: 500 };
+        if (!users[username]) users[username] = { password, gems: 1000 };
         if (users[username].password === password) {
             currentUser = username;
             socket.emit('authSuccess', { username, gems: users[username].gems });
             updateLeaderboard();
         } else {
-            socket.emit('authError', 'Invalid Credentials');
+            socket.emit('authError', 'Invalid Login');
         }
     });
 
     socket.on('joinRoom', (roomId) => {
-        if (!currentUser) return;
+        if (!currentUser || !rooms[roomId]) return;
         socket.join(roomId);
-        if (!rooms[roomId]) {
-            rooms[roomId] = { players: [], dealer: { hand: [], score: 0 }, phase: 'betting', deck: [] };
-            io.emit('roomList', Object.keys(rooms));
-        }
-        if (!rooms[roomId].players.find(p => p.name === currentUser)) {
-            rooms[roomId].players.push({ id: socket.id, name: currentUser, hand: [], score: 0, bet: 0, status: 'waiting' });
-        }
+        
+        // Remove player from any other rooms they might be in
+        Object.keys(rooms).forEach(r => {
+            rooms[r].players = rooms[r].players.filter(p => p.name !== currentUser);
+        });
+
+        rooms[roomId].players.push({ id: socket.id, name: currentUser, hand: [], score: 0, bet: 0, status: 'waiting' });
         broadcastRoom(roomId);
     });
 
@@ -46,6 +51,7 @@ io.on('connection', (socket) => {
             users[currentUser].gems -= amount;
             player.status = 'ready';
             socket.emit('updateBalance', users[currentUser].gems);
+            
             if (room.players.every(p => p.status === 'ready')) startDeal(roomId);
             else broadcastRoom(roomId);
         }
@@ -114,19 +120,17 @@ function endRound(roomId) {
     updateLeaderboard();
     setTimeout(() => {
         if (!rooms[roomId]) return;
-        rooms[roomId].phase = 'betting';
-        rooms[roomId].players.forEach(p => { p.hand = []; p.score = 0; p.status = 'waiting'; p.bet = 0; });
-        rooms[roomId].dealer = { hand: [], score: 0 };
+        room.phase = 'betting';
+        room.players.forEach(p => { p.hand = []; p.score = 0; p.status = 'waiting'; p.bet = 0; });
+        room.dealer = { hand: [], score: 0 };
         broadcastRoom(roomId);
-    }, 8000);
+    }, 6000);
 }
 
 function broadcastRoom(roomId) { io.to(roomId).emit('updateGame', rooms[roomId]); }
 
 function updateLeaderboard() {
-    const top = Object.entries(users)
-        .map(([name, data]) => ({ name, gems: data.gems }))
-        .sort((a, b) => b.gems - a.gems).slice(0, 5);
+    const top = Object.entries(users).map(([name, data]) => ({ name, gems: data.gems })).sort((a, b) => b.gems - a.gems).slice(0, 5);
     io.emit('leaderboard', top);
 }
 
@@ -138,11 +142,7 @@ function createDeck() {
 
 function calculateScore(hand) {
     let s = 0, a = 0;
-    hand.forEach(c => {
-        if (['J','Q','K'].includes(c.value)) s += 10;
-        else if (c.value === 'A') { a++; s += 11; }
-        else s += parseInt(c.value);
-    });
+    hand.forEach(c => { if (['J','Q','K'].includes(c.value)) s += 10; else if (c.value === 'A') { a++; s += 11; } else s += parseInt(c.value); });
     while (s > 21 && a > 0) { s -= 10; a--; }
     return s;
 }
