@@ -15,7 +15,7 @@ io.on('connection', (socket) => {
     socket.emit('roomList', Object.keys(rooms));
 
     socket.on('auth', ({ username, password }) => {
-        if (!users[username]) users[username] = { password, gems: 500 }; // Higher starting gems
+        if (!users[username]) users[username] = { password, gems: 500 };
         if (users[username].password === password) {
             currentUser = username;
             socket.emit('authSuccess', { username, gems: users[username].gems });
@@ -103,3 +103,48 @@ function checkAutoProceed(roomId) {
 function endRound(roomId) {
     const room = rooms[roomId];
     room.players.forEach(p => {
+        if (p.status !== 'bust' && (p.score > room.dealer.score || room.dealer.score > 21)) {
+            users[p.name].gems += p.bet * 2;
+        } else if (p.score === room.dealer.score && p.status !== 'bust') {
+            users[p.name].gems += p.bet;
+        }
+        io.to(p.id).emit('updateBalance', users[p.name].gems);
+    });
+    broadcastRoom(roomId);
+    updateLeaderboard();
+    setTimeout(() => {
+        if (!rooms[roomId]) return;
+        rooms[roomId].phase = 'betting';
+        rooms[roomId].players.forEach(p => { p.hand = []; p.score = 0; p.status = 'waiting'; p.bet = 0; });
+        rooms[roomId].dealer = { hand: [], score: 0 };
+        broadcastRoom(roomId);
+    }, 8000);
+}
+
+function broadcastRoom(roomId) { io.to(roomId).emit('updateGame', rooms[roomId]); }
+
+function updateLeaderboard() {
+    const top = Object.entries(users)
+        .map(([name, data]) => ({ name, gems: data.gems }))
+        .sort((a, b) => b.gems - a.gems).slice(0, 5);
+    io.emit('leaderboard', top);
+}
+
+function createDeck() {
+    const s = ['♠', '♥', '♦', '♣'], v = ['2','3','4','5','6','7','8','9','10','J','Q','K','A'];
+    let d = []; s.forEach(x => v.forEach(y => d.push({suit: x, value: y})));
+    return d.sort(() => Math.random() - 0.5);
+}
+
+function calculateScore(hand) {
+    let s = 0, a = 0;
+    hand.forEach(c => {
+        if (['J','Q','K'].includes(c.value)) s += 10;
+        else if (c.value === 'A') { a++; s += 11; }
+        else s += parseInt(c.value);
+    });
+    while (s > 21 && a > 0) { s -= 10; a--; }
+    return s;
+}
+
+server.listen(process.env.PORT || 3000);
