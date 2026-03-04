@@ -7,46 +7,47 @@ const io = new Server(server, { cors: { origin: "*" } });
 
 app.use(express.static('public'));
 
+// Permanent Rooms
 let rooms = {
-    "The Lounge": { players: [], dealer: { hand: [], score: 0 }, phase: 'betting', deck: [], timer: null },
-    "High Roller": { players: [], dealer: { hand: [], score: 0 }, phase: 'betting', deck: [], timer: null },
-    "VIP Suite": { players: [], dealer: { hand: [], score: 0 }, phase: 'betting', deck: [], timer: null }
+    "The Lounge": { players: [], dealer: { hand: [], score: 0 }, phase: 'betting', deck: [], timer: null, timeLeft: 15 },
+    "High Roller": { players: [], dealer: { hand: [], score: 0 }, phase: 'betting', deck: [], timer: null, timeLeft: 15 },
+    "VIP Suite": { players: [], dealer: { hand: [], score: 0 }, phase: 'betting', deck: [], timer: null, timeLeft: 15 }
 };
 let users = {}; 
 
 io.on('connection', (socket) => {
     let currentUser = null;
+    socket.emit('roomList', Object.keys(rooms));
 
     socket.on('auth', ({ username, password }) => {
         if (!users[username]) users[username] = { password, gems: 1000, lastBonus: 0 };
         if (users[username].password === password) {
             currentUser = username;
             socket.emit('authSuccess', { username, gems: users[username].gems });
+        } else {
+            socket.emit('authError', 'Invalid login');
         }
     });
 
-    // --- DAILY REWARD LOGIC ---
     socket.on('claimDaily', () => {
         if (!currentUser) return;
         const now = Date.now();
-        const oneDay = 24 * 60 * 60 * 1000;
-        if (now - users[currentUser].lastBonus > oneDay) {
+        if (now - users[currentUser].lastBonus > 86400000) { // 24 hours
             users[currentUser].gems += 500;
             users[currentUser].lastBonus = now;
             socket.emit('updateBalance', users[currentUser].gems);
-            socket.emit('notification', "You claimed 500 Daily Gems! 💎");
+            socket.emit('notification', "Success! +500 Gems 💎");
         } else {
-            socket.emit('notification', "Bonus not ready yet!");
+            socket.emit('notification', "Bonus available every 24h.");
         }
     });
 
     socket.on('joinRoom', (roomId) => {
         if (!currentUser || !rooms[roomId]) return;
         socket.join(roomId);
-        // Clear from other rooms
         Object.keys(rooms).forEach(r => rooms[r].players = rooms[r].players.filter(p => p.name !== currentUser));
         rooms[roomId].players.push({ id: socket.id, name: currentUser, hand: [], score: 0, bet: 0, status: 'waiting' });
-        broadcastRoom(roomId);
+        io.to(roomId).emit('updateGame', rooms[roomId]);
     });
 
     socket.on('placeBet', ({ roomId, amount }) => {
@@ -58,21 +59,18 @@ io.on('connection', (socket) => {
             player.status = 'ready';
             socket.emit('updateBalance', users[currentUser].gems);
             
-            // If first person bets, start a 15s countdown
             if (room.players.filter(p => p.status === 'ready').length === 1) {
-                startCountdown(roomId);
+                startRoomTimer(roomId);
             }
-            
             if (room.players.every(p => p.status === 'ready')) {
-                clearTimeout(room.timer);
+                clearInterval(room.timer);
                 startDeal(roomId);
             } else {
-                broadcastRoom(roomId);
+                io.to(roomId).emit('updateGame', room);
             }
         }
     });
 
-    // ... (Hit/Stand logic remains the same)
     socket.on('hit', (roomId) => {
         const room = rooms[roomId];
         const player = room?.players.find(p => p.id === socket.id);
@@ -91,22 +89,22 @@ io.on('connection', (socket) => {
     });
 });
 
-function startCountdown(roomId) {
+function startRoomTimer(roomId) {
     const room = rooms[roomId];
-    let timeLeft = 15;
+    room.timeLeft = 15;
+    if (room.timer) clearInterval(room.timer);
     room.timer = setInterval(() => {
-        timeLeft--;
-        io.to(roomId).emit('timerUpdate', timeLeft);
-        if (timeLeft <= 0) {
+        room.timeLeft--;
+        io.to(roomId).emit('timerUpdate', room.timeLeft);
+        if (room.timeLeft <= 0) {
             clearInterval(room.timer);
-            if (room.players.some(p => p.status === 'ready')) startDeal(roomId);
+            startDeal(roomId);
         }
     }, 1000);
 }
 
 function startDeal(roomId) {
     const room = rooms[roomId];
-    clearInterval(room.timer);
     room.phase = 'playing';
     room.deck = createDeck();
     room.dealer.hand = [room.deck.pop(), room.deck.pop()];
@@ -115,14 +113,11 @@ function startDeal(roomId) {
             p.hand = [room.deck.pop(), room.deck.pop()];
             p.score = calculateScore(p.hand);
             p.status = 'playing';
-        } else {
-            p.status = 'spectating';
-        }
+        } else { p.status = 'spectating'; }
     });
-    broadcastRoom(roomId);
+    io.to(roomId).emit('updateGame', room);
 }
 
-// ... (calculateScore, createDeck, endRound logic)
 function checkAutoProceed(roomId) {
     const room = rooms[roomId];
     if (room.players.filter(p => p.status === 'playing').length === 0) {
@@ -132,13 +127,13 @@ function checkAutoProceed(roomId) {
             room.dealer.hand.push(room.deck.pop());
             room.dealer.score = calculateScore(room.dealer.hand);
         }
-        endRound(roomId);
+        resolveRound(roomId);
     } else {
-        broadcastRoom(roomId);
+        io.to(roomId).emit('updateGame', room);
     }
 }
 
-function endRound(roomId) {
+function resolveRound(roomId) {
     const room = rooms[roomId];
     room.players.forEach(p => {
         if (p.status !== 'spectating') {
@@ -150,21 +145,21 @@ function endRound(roomId) {
             io.to(p.id).emit('updateBalance', users[p.name].gems);
         }
     });
-    broadcastRoom(roomId);
+    io.to(roomId).emit('updateGame', room);
     setTimeout(() => {
         room.phase = 'betting';
         room.players.forEach(p => { p.hand = []; p.score = 0; p.status = 'waiting'; p.bet = 0; });
         room.dealer = { hand: [], score: 0 };
-        broadcastRoom(roomId);
-    }, 5000);
+        io.to(roomId).emit('updateGame', room);
+    }, 6000);
 }
 
-function broadcastRoom(roomId) { io.to(roomId).emit('updateGame', rooms[roomId]); }
 function createDeck() {
     const s = ['♠', '♥', '♦', '♣'], v = ['2','3','4','5','6','7','8','9','10','J','Q','K','A'];
     let d = []; s.forEach(x => v.forEach(y => d.push({suit: x, value: y})));
     return d.sort(() => Math.random() - 0.5);
 }
+
 function calculateScore(hand) {
     let s = 0, a = 0;
     hand.forEach(c => { if (['J','Q','K'].includes(c.value)) s += 10; else if (c.value === 'A') { a++; s += 11; } else s += parseInt(c.value); });
