@@ -158,7 +158,8 @@
     <div class="auth-box">
         <div class="form-group"><label>Username</label><input id="username" placeholder="Enter username" autocomplete="off"></div>
         <div class="form-group"><label>Password</label><input id="password" type="password" placeholder="Enter password"></div>
-        <button class="btn-primary" onclick="auth()">ENTER CASINO</button>
+        <div id="auth-error" style="color:#e05252;font-size:0.8rem;margin:8px 0;min-height:20px;text-align:center;"></div>
+        <button class="btn-primary" id="auth-btn" onclick="auth()">ENTER CASINO</button>
     </div>
 </div>
 
@@ -227,7 +228,16 @@
     function auth() {
         const username = document.getElementById('username').value.trim();
         const password = document.getElementById('password').value;
-        if (!username || !password) return showToast('Enter username and password');
+        document.getElementById('auth-error').innerText = '';
+        if (!username || !password) {
+            document.getElementById('auth-error').innerText = 'Username and password required.';
+            return;
+        }
+        if (username.length < 3) { document.getElementById('auth-error').innerText = 'Username must be at least 3 characters.'; return; }
+        if (password.length < 6) { document.getElementById('auth-error').innerText = 'Password must be at least 6 characters.'; return; }
+        const btn = document.getElementById('auth-btn');
+        btn.innerText = 'CONNECTING...';
+        btn.disabled = true;
         socket.emit('auth', { username, password });
     }
 
@@ -235,7 +245,15 @@
         if (e.key === 'Enter' && !document.getElementById('auth-screen').classList.contains('hidden')) auth();
     });
 
+    socket.on('authFail', (msg) => {
+        document.getElementById('auth-error').innerText = msg;
+        const btn = document.getElementById('auth-btn');
+        btn.innerText = 'ENTER CASINO';
+        btn.disabled = false;
+    });
+
     socket.on('authSuccess', ({ username, gems }) => {
+        document.getElementById('auth-error').innerText = '';
         myUsername = username;
         myGems = gems;
         document.getElementById('auth-screen').classList.add('hidden');
