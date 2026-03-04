@@ -2,69 +2,58 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>GEMSTONE CASINO | BLACKJACK</title>
+    <title>GEMSTONE CASINO</title>
     <script src="/socket.io/socket.io.js"></script>
     <style>
-        :root { --gold: #ffd700; --neon-blue: #00d4ff; --bg: #0a0a12; }
-        body { background: var(--bg); color: white; font-family: 'Rajdhani', sans-serif; margin: 0; overflow-x: hidden; }
-        .card { width: 50px; height: 75px; background: white; color: black; border-radius: 6px; display: inline-flex; align-items: center; justify-content: center; font-weight: bold; font-size: 1.2rem; margin: 4px; border: 2px solid #333; box-shadow: 0 4px 8px rgba(0,0,0,0.5); }
-        .card.hidden { background: repeating-linear-gradient(45deg, #222, #222 10px, #444 10px, #444 20px); color: transparent; }
-        .panel { background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); padding: 20px; border-radius: 15px; margin: 10px; }
-        .btn { padding: 12px 24px; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; text-transform: uppercase; transition: 0.3s; margin: 5px; }
-        .btn-bet { background: var(--gold); color: black; }
-        .btn-action { background: var(--neon-blue); color: black; }
-        #leaderboard { position: fixed; right: 20px; top: 20px; width: 200px; text-align: left; font-size: 0.9rem; }
-        .player-card { display: inline-block; vertical-align: top; width: 220px; padding: 15px; background: rgba(0,212,255,0.05); border-left: 4px solid var(--neon-blue); margin: 10px; text-align: left; }
-        .bust { border-left-color: #ff4d4d !important; opacity: 0.7; }
+        :root { --gold: #ffd700; --neon: #00d4ff; --bg: #0a0a12; }
+        body { background: var(--bg); color: white; font-family: sans-serif; text-align: center; margin: 0; }
         .hidden { display: none !important; }
+        .panel { background: rgba(255,255,255,0.05); padding: 20px; border-radius: 15px; margin: 10px; border: 1px solid #333; }
+        .card { width: 50px; height: 75px; background: white; color: black; border-radius: 6px; display: inline-flex; align-items: center; justify-content: center; font-weight: bold; margin: 4px; }
+        .card.back { background: #444; color: transparent; border: 2px solid var(--gold); }
+        .btn { padding: 12px 24px; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; margin: 5px; }
+        .btn-bet { background: var(--gold); }
+        .btn-action { background: var(--neon); }
+        #leaderboard { position: fixed; right: 10px; top: 10px; width: 180px; font-size: 0.8rem; text-align: left; }
     </style>
 </head>
 <body>
-
-    <div id="auth-screen" style="padding-top: 100px;">
-        <h1 style="color: var(--gold); letter-spacing: 5px;">GEMSTONE CASINO</h1>
-        <div class="panel" style="max-width: 400px; margin: auto;">
-            <input id="username" placeholder="USERNAME" style="width:80%; padding:10px; margin:10px; background:#222; border:1px solid #444; color:white;"><br>
-            <input id="password" type="password" placeholder="PASSWORD" style="width:80%; padding:10px; margin:10px; background:#222; border:1px solid #444; color:white;"><br>
-            <button class="btn btn-bet" onclick="auth()">ENTER CASINO</button>
+    <div id="auth-screen" style="margin-top: 100px;">
+        <h1 style="color: var(--gold)">GEMSTONE CASINO</h1>
+        <div class="panel" style="max-width: 300px; margin: auto;">
+            <input id="username" placeholder="Username" style="width:90%; padding:8px; margin-bottom:10px;">
+            <input id="password" type="password" placeholder="Password" style="width:90%; padding:8px; margin-bottom:10px;">
+            <button class="btn btn-bet" onclick="auth()">ENTER</button>
         </div>
     </div>
 
     <div id="lobby" class="hidden">
-        <div id="leaderboard" class="panel">
-            <h4 style="color:var(--gold)">TOP WHALES</h4>
-            <div id="leaderList"></div>
-        </div>
-        <h2>WELCOME, <span id="userDisplay" style="color:var(--neon-blue)"></span></h2>
-        <h3>YOUR STACK: <span id="gemDisplay" style="color:var(--gold)"></span> 💎</h3>
+        <div id="leaderboard" class="panel"><h4 style="margin:0">TOP PLAYERS</h4><div id="leaderList"></div></div>
+        <h2>Welcome, <span id="userDisplay"></span>!</h2>
+        <h3>Gems: <span id="gemDisplay" style="color:var(--gold)"></span> 💎</h3>
         <div class="panel">
-            <input id="roomInput" placeholder="TABLE NAME">
+            <input id="roomInput" placeholder="Table Name">
             <button class="btn btn-action" onclick="join(document.getElementById('roomInput').value)">OPEN TABLE</button>
-            <div id="roomList" style="margin-top:20px;"></div>
+            <div id="roomList" style="margin-top:15px;"></div>
         </div>
     </div>
 
     <div id="gameArea" class="hidden">
-        <div id="dealer-area" class="panel">
-            <h2 style="color:var(--gold)">THE HOUSE</h2>
+        <div class="panel">
+            <h3 style="color:var(--gold)">THE HOUSE</h3>
             <div id="dealerCards"></div>
-            <p>DEALER SCORE: <span id="dealerScore">?</span></p>
+            <p>Dealer: <span id="dealerScore">?</span></p>
         </div>
-
-        <h1 id="phaseMessage" style="color:var(--neon-blue); text-shadow: 0 0 10px var(--neon-blue)"></h1>
-
+        <h2 id="phaseMessage" style="color:var(--neon)"></h2>
         <div id="betting-controls" class="hidden">
-            <h3>PLACE YOUR WAGER</h3>
             <button class="btn btn-bet" onclick="bet(50)">50</button>
             <button class="btn btn-bet" onclick="bet(100)">100</button>
             <button class="btn btn-bet" onclick="bet(250)">250</button>
         </div>
-
         <div id="action-controls" class="hidden">
             <button class="btn btn-action" onclick="hit()">HIT</button>
             <button class="btn btn-action" onclick="stand()">STAND</button>
         </div>
-
         <div id="players"></div>
     </div>
 
@@ -79,15 +68,19 @@
         socket.on('authSuccess', (data) => {
             document.getElementById('auth-screen').classList.add('hidden');
             document.getElementById('lobby').classList.remove('hidden');
-            document.getElementById('userDisplay').innerText = data.username.toUpperCase();
+            document.getElementById('userDisplay').innerText = data.username;
             document.getElementById('gemDisplay').innerText = data.gems;
         });
 
-        socket.on('leaderboard', (list) => {
-            document.getElementById('leaderList').innerHTML = list.map((u, i) => `<div>#${i+1} ${u.name}: ${u.gems}</div>`).join('');
+        socket.on('roomList', (rooms) => {
+            document.getElementById('roomList').innerHTML = rooms.map(r => `<button class="btn btn-action" onclick="join('${r}')">JOIN ${r.toUpperCase()}</button>`).join('');
         });
 
-        function join(r) { currentRoom = r; socket.emit('joinRoom', r); document.getElementById('lobby').classList.add('hidden'); document.getElementById('gameArea').classList.remove('hidden'); }
+        socket.on('leaderboard', (list) => {
+            document.getElementById('leaderList').innerHTML = list.map(u => `<div>${u.name}: ${u.gems}</div>`).join('');
+        });
+
+        function join(r) { if(!r) return; currentRoom = r; socket.emit('joinRoom', r); document.getElementById('lobby').classList.add('hidden'); document.getElementById('gameArea').classList.remove('hidden'); }
         function bet(a) { socket.emit('placeBet', { roomId: currentRoom, amount: a }); }
         function hit() { socket.emit('hit', currentRoom); }
         function stand() { socket.emit('stand', currentRoom); }
@@ -97,11 +90,9 @@
             document.getElementById('action-controls').classList.toggle('hidden', room.phase !== 'playing');
             document.getElementById('phaseMessage').innerText = room.phase.toUpperCase();
 
-            // Dealer Logic with Hole Card
             let dHtml = "";
             if (room.phase === 'playing') {
-                dHtml += `<div class="card">${room.dealer.hand[0].value}${room.dealer.hand[0].suit}</div>`;
-                dHtml += `<div class="card hidden">?</div>`;
+                dHtml = `<div class="card">${room.dealer.hand[0].value}${room.dealer.hand[0].suit}</div><div class="card back">?</div>`;
                 document.getElementById('dealerScore').innerText = "??";
             } else {
                 dHtml = room.dealer.hand.map(c => `<div class="card">${c.value}${c.suit}</div>`).join('');
@@ -110,9 +101,8 @@
             document.getElementById('dealerCards').innerHTML = dHtml;
 
             document.getElementById('players').innerHTML = room.players.map(p => `
-                <div class="player-card ${p.status === 'bust' ? 'bust' : ''}">
-                    <strong style="color:var(--neon-blue)">${p.name}</strong><br>
-                    BET: ${p.bet} | SCORE: ${p.score}<br>
+                <div style="display:inline-block; margin:10px; padding:10px; border-left:3px solid var(--neon)">
+                    <strong>${p.name}</strong><br>Bet: ${p.bet} | Score: ${p.score}<br>
                     ${p.hand.map(c => `<div class="card">${c.value}${c.suit}</div>`).join('')}
                 </div>
             `).join('');
@@ -120,19 +110,12 @@
 
         function calculateScore(hand) {
             let s = 0, a = 0;
-            hand.forEach(c => {
-                if (['J','Q','K'].includes(c.value)) s += 10;
-                else if (c.value === 'A') { a++; s += 11; }
-                else s += parseInt(c.value);
-            });
+            hand.forEach(c => { if (['J','Q','K'].includes(c.value)) s += 10; else if (c.value === 'A') { a++; s += 11; } else s += parseInt(c.value); });
             while (s > 21 && a > 0) { s -= 10; a--; }
             return s;
         }
 
         socket.on('updateBalance', (g) => { document.getElementById('gemDisplay').innerText = g; });
-        socket.on('roomList', (rooms) => {
-            document.getElementById('roomList').innerHTML = rooms.map(r => `<button class="btn btn-action" onclick="join('${r}')">JOIN ${r}</button>`).join('');
-        });
     </script>
 </body>
 </html>
