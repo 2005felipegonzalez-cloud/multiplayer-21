@@ -7,11 +7,10 @@ const io = new Server(server, { cors: { origin: "*" } });
 
 app.use(express.static('public'));
 
-// Rooms with different stakes
 let rooms = {
-    "The Lounge": { players: [], dealer: { hand: [], score: 0 }, phase: 'betting', minBet: 10, timeLeft: 15 },
-    "High Roller": { players: [], dealer: { hand: [], score: 0 }, phase: 'betting', minBet: 100, timeLeft: 15 },
-    "VIP Suite": { players: [], dealer: { hand: [], score: 0 }, phase: 'betting', minBet: 500, timeLeft: 15 }
+    "The Lounge": { players: [], dealer: { hand: [], score: 0 }, phase: 'betting', minBet: 10, timeLeft: 15, timer: null, deck: [] },
+    "High Roller": { players: [], dealer: { hand: [], score: 0 }, phase: 'betting', minBet: 100, timeLeft: 15, timer: null, deck: [] },
+    "VIP Suite": { players: [], dealer: { hand: [], score: 0 }, phase: 'betting', minBet: 500, timeLeft: 15, timer: null, deck: [] }
 };
 let users = {}; 
 
@@ -27,21 +26,20 @@ io.on('connection', (socket) => {
         }
     });
 
+    socket.on('joinRoom', (roomId) => {
+        if (!currentUser || !rooms[roomId]) return;
+        socket.join(roomId);
+        Object.keys(rooms).forEach(r => rooms[r].players = rooms[r].players.filter(p => p.name !== currentUser));
+        rooms[roomId].players.push({ id: socket.id, name: currentUser, hand: [], score: 0, bet: 0, status: 'waiting' });
+        io.to(roomId).emit('updateGame', rooms[roomId]);
+    });
+
     socket.on('leaveRoom', (roomId) => {
         if (rooms[roomId]) {
             rooms[roomId].players = rooms[roomId].players.filter(p => p.id !== socket.id);
             socket.leave(roomId);
             io.to(roomId).emit('updateGame', rooms[roomId]);
         }
-    });
-
-    socket.on('joinRoom', (roomId) => {
-        if (!currentUser || !rooms[roomId]) return;
-        socket.join(roomId);
-        // Clear from other rooms first
-        Object.keys(rooms).forEach(r => rooms[r].players = rooms[r].players.filter(p => p.name !== currentUser));
-        rooms[roomId].players.push({ id: socket.id, name: currentUser, hand: [], score: 0, bet: 0, status: 'waiting' });
-        io.to(roomId).emit('updateGame', rooms[roomId]);
     });
 
     socket.on('placeBet', ({ roomId, amount }) => {
@@ -55,12 +53,9 @@ io.on('connection', (socket) => {
             if (room.players.filter(p => p.status === 'ready').length === 1) startRoomTimer(roomId);
             if (room.players.every(p => p.status === 'ready')) { clearInterval(room.timer); startDeal(roomId); }
             else { io.to(roomId).emit('updateGame', room); }
-        } else if (amount < room.minBet) {
-            socket.emit('notification', `Minimum bet for this table is ${room.minBet}!`);
         }
     });
 
-    // ... (Hit, Stand, calculateScore, startDeal, resolveRound functions stay the same as previous)
     socket.on('hit', (roomId) => {
         const room = rooms[roomId];
         const player = room?.players.find(p => p.id === socket.id);
@@ -92,7 +87,6 @@ io.on('connection', (socket) => {
     });
 });
 
-// Timer and Deal Logic
 function startRoomTimer(roomId) {
     const room = rooms[roomId];
     room.timeLeft = 15;
@@ -136,4 +130,37 @@ function checkAutoProceed(roomId) {
 
 function resolveRound(roomId) {
     const room = rooms[roomId];
-    room.players
+    room.players.forEach(p => {
+        if (p.status !== 'spectating') {
+            if (p.status !== 'bust' && (p.score > room.dealer.score || room.dealer.score > 21)) {
+                users[p.name].gems += p.bet * 2;
+            } else if (p.score === room.dealer.score && p.status !== 'bust') {
+                users[p.name].gems += p.bet;
+            }
+            io.to(p.id).emit('updateBalance', users[p.name].gems);
+        }
+    });
+    io.to(roomId).emit('updateGame', room);
+    setTimeout(() => {
+        if(!rooms[roomId]) return;
+        room.phase = 'betting';
+        room.players.forEach(p => { p.hand = []; p.score = 0; p.status = 'waiting'; p.bet = 0; });
+        room.dealer = { hand: [], score: 0 };
+        io.to(roomId).emit('updateGame', room);
+    }, 6000);
+}
+
+function createDeck() {
+    const s = ['♠', '♥', '♦', '♣'], v = ['2','3','4','5','6','7','8','9','10','J','Q','K','A'];
+    let d = []; s.forEach(x => v.forEach(y => d.push({suit: x, value: y})));
+    return d.sort(() => Math.random() - 0.5);
+}
+
+function calculateScore(hand) {
+    let s = 0, a = 0;
+    hand.forEach(c => { if (['J','Q','K'].includes(c.value)) s += 10; else if (c.value === 'A') { a++; s += 11; } else s += parseInt(c.value); });
+    while (s > 21 && a > 0) { s -= 10; a--; }
+    return s;
+}
+
+server.listen(process.env.PORT || 3000);
