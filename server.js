@@ -49,9 +49,9 @@ app.use(rateLimit({ windowMs: 60_000, max: 100, standardHeaders: true, legacyHea
 app.use(express.static('public'));
 
 let rooms = {
-    "The Lounge": { players: [], dealer: { hand: [], score: 0 }, phase: 'betting', entryFee: 25,  timeLeft: 15, timer: null, deck: [] },
-    "High Roller": { players: [], dealer: { hand: [], score: 0 }, phase: 'betting', entryFee: 100, timeLeft: 15, timer: null, deck: [] },
-    "VIP Suite":   { players: [], dealer: { hand: [], score: 0 }, phase: 'betting', entryFee: 500, timeLeft: 15, timer: null, deck: [] }
+    "The Lounge": { players: [], dealer: { hand: [], score: 0 }, phase: 'betting', entryFee: 25,  timeLeft: 10, timer: null, deck: [] },
+    "High Roller": { players: [], dealer: { hand: [], score: 0 }, phase: 'betting', entryFee: 100, timeLeft: 10, timer: null, deck: [] },
+    "VIP Suite":   { players: [], dealer: { hand: [], score: 0 }, phase: 'betting', entryFee: 500, timeLeft: 10, timer: null, deck: [] }
 };
 
 // ── Track failed login attempts in memory (resets on server restart — intentional)
