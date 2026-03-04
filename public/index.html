@@ -19,538 +19,134 @@
             --text: #d0cfc8;
             --text-dim: rgba(208,207,200,0.45);
         }
-
         * { box-sizing: border-box; margin: 0; padding: 0; }
-
-        body {
-            background: var(--dark);
-            color: var(--text);
-            font-family: 'DM Sans', sans-serif;
-            min-height: 100vh;
-            overflow-x: hidden;
-        }
-
-        /* Background pattern */
+        body { background: var(--dark); color: var(--text); font-family: 'DM Sans', sans-serif; min-height: 100vh; overflow-x: hidden; }
         body::before {
-            content: '';
-            position: fixed;
-            inset: 0;
-            background-image: 
+            content: ''; position: fixed; inset: 0; pointer-events: none; z-index: 0;
+            background-image:
                 repeating-linear-gradient(45deg, rgba(212,168,83,0.015) 0px, rgba(212,168,83,0.015) 1px, transparent 1px, transparent 40px),
                 repeating-linear-gradient(-45deg, rgba(212,168,83,0.015) 0px, rgba(212,168,83,0.015) 1px, transparent 1px, transparent 40px);
-            pointer-events: none;
-            z-index: 0;
         }
-
         .hidden { display: none !important; }
 
-        /* ── AUTH ── */
-        #auth-screen {
-            position: relative;
-            z-index: 1;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            min-height: 100vh;
-            padding: 20px;
-        }
+        /* AUTH */
+        #auth-screen { position:relative; z-index:1; display:flex; flex-direction:column; align-items:center; justify-content:center; min-height:100vh; padding:20px; }
+        .casino-logo { font-family:'Playfair Display',serif; font-size:clamp(2.5rem,8vw,5rem); font-weight:900; color:var(--gold); letter-spacing:0.1em; text-shadow:0 0 60px rgba(212,168,83,0.4); line-height:1; }
+        .casino-subtitle { font-size:0.7rem; letter-spacing:0.5em; color:var(--text-dim); text-transform:uppercase; margin-top:8px; margin-bottom:50px; }
+        .auth-box { background:var(--surface); border:1px solid rgba(212,168,83,0.2); border-radius:16px; padding:40px 35px; width:100%; max-width:380px; position:relative; }
+        .auth-box::before { content:''; position:absolute; top:-1px; left:20px; right:20px; height:2px; background:linear-gradient(90deg,transparent,var(--gold),transparent); }
+        .form-group { margin-bottom:16px; }
+        .form-group label { display:block; font-size:0.65rem; letter-spacing:0.2em; color:var(--text-dim); text-transform:uppercase; margin-bottom:6px; }
+        .form-group input { width:100%; padding:12px 16px; background:var(--dark); border:1px solid rgba(255,255,255,0.08); border-radius:8px; color:var(--text); font-family:'DM Sans',sans-serif; font-size:0.95rem; outline:none; transition:border-color 0.2s; }
+        .form-group input:focus { border-color:rgba(212,168,83,0.5); }
+        .btn-primary { width:100%; padding:14px; margin-top:8px; background:linear-gradient(135deg,#c49a3a,#e8c56a,#c49a3a); border:none; border-radius:8px; color:#1a1005; font-family:'DM Sans',sans-serif; font-size:0.8rem; font-weight:600; letter-spacing:0.2em; text-transform:uppercase; cursor:pointer; transition:opacity 0.2s,transform 0.1s; }
+        .btn-primary:hover { opacity:0.9; transform:translateY(-1px); }
 
-        .casino-logo {
-            font-family: 'Playfair Display', serif;
-            font-size: clamp(2.5rem, 8vw, 5rem);
-            font-weight: 900;
-            color: var(--gold);
-            letter-spacing: 0.1em;
-            text-shadow: 0 0 60px rgba(212,168,83,0.4);
-            line-height: 1;
-        }
+        /* LOBBY */
+        #lobby { position:relative; z-index:1; max-width:900px; margin:0 auto; padding:30px 20px; }
+        .lobby-header { display:flex; align-items:center; justify-content:space-between; margin-bottom:40px; flex-wrap:wrap; gap:15px; }
+        .lobby-logo { font-family:'Playfair Display',serif; font-size:1.6rem; color:var(--gold); letter-spacing:0.05em; }
+        .balance-pill { background:var(--surface); border:1px solid rgba(212,168,83,0.25); border-radius:50px; padding:10px 20px; font-size:0.9rem; display:flex; align-items:center; gap:8px; }
+        .balance-pill span { color:var(--gold); font-weight:600; font-size:1rem; }
+        .btn-daily { padding:10px 22px; background:transparent; border:1px solid rgba(212,168,83,0.35); border-radius:50px; color:var(--gold); font-family:'DM Sans',sans-serif; font-size:0.8rem; cursor:pointer; transition:all 0.2s; letter-spacing:0.05em; }
+        .btn-daily:hover { background:var(--gold-dim); }
+        .section-title { font-family:'Playfair Display',serif; font-size:1.1rem; color:var(--text-dim); letter-spacing:0.15em; text-transform:uppercase; margin-bottom:20px; }
+        .table-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(240px,1fr)); gap:16px; }
+        .table-card { background:var(--surface); border:1px solid rgba(255,255,255,0.06); border-radius:14px; padding:28px; cursor:pointer; transition:all 0.25s; position:relative; overflow:hidden; }
+        .table-card::after { content:''; position:absolute; inset:0; background:radial-gradient(circle at 50% 0%,rgba(212,168,83,0.06),transparent 70%); opacity:0; transition:opacity 0.25s; }
+        .table-card:hover { border-color:rgba(212,168,83,0.4); transform:translateY(-3px); box-shadow:0 12px 40px rgba(0,0,0,0.4); }
+        .table-card:hover::after { opacity:1; }
+        .table-name { font-family:'Playfair Display',serif; font-size:1.3rem; color:var(--gold); margin-bottom:8px; }
+        .table-fee { font-size:0.75rem; color:var(--text-dim); letter-spacing:0.1em; }
+        .table-players { font-size:0.72rem; color:var(--text-dim); margin-top:4px; }
+        .table-badge { display:inline-block; padding:3px 10px; border-radius:50px; font-size:0.65rem; letter-spacing:0.1em; text-transform:uppercase; margin-bottom:16px; }
+        .badge-low  { background:rgba(82,201,122,0.15); color:var(--green); border:1px solid rgba(82,201,122,0.25); }
+        .badge-mid  { background:rgba(212,168,83,0.15); color:var(--gold);  border:1px solid rgba(212,168,83,0.25); }
+        .badge-high { background:rgba(224,82,82,0.15);  color:var(--red);   border:1px solid rgba(224,82,82,0.25);  }
 
-        .casino-subtitle {
-            font-size: 0.7rem;
-            letter-spacing: 0.5em;
-            color: var(--text-dim);
-            text-transform: uppercase;
-            margin-top: 8px;
-            margin-bottom: 50px;
-        }
-
-        .auth-box {
-            background: var(--surface);
-            border: 1px solid rgba(212,168,83,0.2);
-            border-radius: 16px;
-            padding: 40px 35px;
-            width: 100%;
-            max-width: 380px;
-            position: relative;
-        }
-
-        .auth-box::before {
-            content: '';
-            position: absolute;
-            top: -1px; left: 20px; right: 20px;
-            height: 2px;
-            background: linear-gradient(90deg, transparent, var(--gold), transparent);
-        }
-
-        .form-group {
-            margin-bottom: 16px;
-        }
-
-        .form-group label {
-            display: block;
-            font-size: 0.65rem;
-            letter-spacing: 0.2em;
-            color: var(--text-dim);
-            text-transform: uppercase;
-            margin-bottom: 6px;
-        }
-
-        .form-group input {
-            width: 100%;
-            padding: 12px 16px;
-            background: var(--dark);
-            border: 1px solid rgba(255,255,255,0.08);
-            border-radius: 8px;
-            color: var(--text);
-            font-family: 'DM Sans', sans-serif;
-            font-size: 0.95rem;
-            outline: none;
-            transition: border-color 0.2s;
-        }
-
-        .form-group input:focus { border-color: rgba(212,168,83,0.5); }
-
-        .btn-primary {
-            width: 100%;
-            padding: 14px;
-            margin-top: 8px;
-            background: linear-gradient(135deg, #c49a3a, #e8c56a, #c49a3a);
-            border: none;
-            border-radius: 8px;
-            color: #1a1005;
-            font-family: 'DM Sans', sans-serif;
-            font-size: 0.8rem;
-            font-weight: 600;
-            letter-spacing: 0.2em;
-            text-transform: uppercase;
-            cursor: pointer;
-            transition: opacity 0.2s, transform 0.1s;
-        }
-
-        .btn-primary:hover { opacity: 0.9; transform: translateY(-1px); }
-        .btn-primary:active { transform: translateY(0); }
-
-        /* ── LOBBY ── */
-        #lobby {
-            position: relative;
-            z-index: 1;
-            max-width: 900px;
-            margin: 0 auto;
-            padding: 30px 20px;
-        }
-
-        .lobby-header {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            margin-bottom: 40px;
-            flex-wrap: wrap;
-            gap: 15px;
-        }
-
-        .lobby-logo {
-            font-family: 'Playfair Display', serif;
-            font-size: 1.6rem;
-            color: var(--gold);
-            letter-spacing: 0.05em;
-        }
-
-        .balance-pill {
-            background: var(--surface);
-            border: 1px solid rgba(212,168,83,0.25);
-            border-radius: 50px;
-            padding: 10px 20px;
-            font-size: 0.9rem;
-            display: flex;
-            align-items: center;
-            gap: 8px;
-        }
-
-        .balance-pill span { color: var(--gold); font-weight: 600; font-size: 1rem; }
-
-        .btn-daily {
-            padding: 10px 22px;
-            background: transparent;
-            border: 1px solid rgba(212,168,83,0.35);
-            border-radius: 50px;
-            color: var(--gold);
-            font-family: 'DM Sans', sans-serif;
-            font-size: 0.8rem;
-            cursor: pointer;
-            transition: all 0.2s;
-            letter-spacing: 0.05em;
-        }
-
-        .btn-daily:hover { background: var(--gold-dim); }
-
-        .section-title {
-            font-family: 'Playfair Display', serif;
-            font-size: 1.1rem;
-            color: var(--text-dim);
-            letter-spacing: 0.15em;
-            text-transform: uppercase;
-            margin-bottom: 20px;
-        }
-
-        .table-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
-            gap: 16px;
-        }
-
-        .table-card {
-            background: var(--surface);
-            border: 1px solid rgba(255,255,255,0.06);
-            border-radius: 14px;
-            padding: 28px;
-            cursor: pointer;
-            transition: all 0.25s;
-            position: relative;
-            overflow: hidden;
-        }
-
-        .table-card::after {
-            content: '';
-            position: absolute;
-            inset: 0;
-            background: radial-gradient(circle at 50% 0%, rgba(212,168,83,0.06), transparent 70%);
-            opacity: 0;
-            transition: opacity 0.25s;
-        }
-
-        .table-card:hover { border-color: rgba(212,168,83,0.4); transform: translateY(-3px); box-shadow: 0 12px 40px rgba(0,0,0,0.4); }
-        .table-card:hover::after { opacity: 1; }
-
-        .table-name {
-            font-family: 'Playfair Display', serif;
-            font-size: 1.3rem;
-            color: var(--gold);
-            margin-bottom: 8px;
-        }
-
-        .table-fee {
-            font-size: 0.75rem;
-            color: var(--text-dim);
-            letter-spacing: 0.1em;
-        }
-
-        .table-players {
-            font-size: 0.72rem;
-            color: var(--text-dim);
-            margin-top: 4px;
-        }
-
-        .table-badge {
-            display: inline-block;
-            padding: 3px 10px;
-            border-radius: 50px;
-            font-size: 0.65rem;
-            letter-spacing: 0.1em;
-            text-transform: uppercase;
-            margin-bottom: 16px;
-        }
-
-        .badge-low { background: rgba(82,201,122,0.15); color: var(--green); border: 1px solid rgba(82,201,122,0.25); }
-        .badge-mid { background: rgba(212,168,83,0.15); color: var(--gold); border: 1px solid rgba(212,168,83,0.25); }
-        .badge-high { background: rgba(224,82,82,0.15); color: var(--red); border: 1px solid rgba(224,82,82,0.25); }
-
-        /* ── GAME AREA ── */
-        #gameArea {
-            position: relative;
-            z-index: 1;
-            max-width: 1000px;
-            margin: 0 auto;
-            padding: 20px;
-            min-height: 100vh;
-            display: flex;
-            flex-direction: column;
-        }
-
-        .game-header {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            margin-bottom: 20px;
-            flex-wrap: wrap;
-            gap: 10px;
-        }
-
-        .game-room-name {
-            font-family: 'Playfair Display', serif;
-            font-size: 1.2rem;
-            color: var(--gold);
-        }
-
-        .game-balance {
-            font-size: 0.85rem;
-            color: var(--text-dim);
-        }
-
-        .game-balance strong { color: var(--gold); }
-
-        .btn-exit {
-            padding: 8px 18px;
-            background: transparent;
-            border: 1px solid rgba(224,82,82,0.35);
-            border-radius: 50px;
-            color: var(--red);
-            font-family: 'DM Sans', sans-serif;
-            font-size: 0.75rem;
-            cursor: pointer;
-            transition: all 0.2s;
-            letter-spacing: 0.05em;
-        }
-
-        .btn-exit:hover { background: rgba(224,82,82,0.1); }
+        /* GAME */
+        #gameArea { position:relative; z-index:1; max-width:1000px; margin:0 auto; padding:20px; min-height:100vh; display:flex; flex-direction:column; }
+        .game-header { display:flex; align-items:center; justify-content:space-between; margin-bottom:20px; flex-wrap:wrap; gap:10px; }
+        .game-room-name { font-family:'Playfair Display',serif; font-size:1.2rem; color:var(--gold); }
+        .game-balance { font-size:0.85rem; color:var(--text-dim); }
+        .game-balance strong { color:var(--gold); }
+        .btn-exit { padding:8px 18px; background:transparent; border:1px solid rgba(224,82,82,0.35); border-radius:50px; color:var(--red); font-family:'DM Sans',sans-serif; font-size:0.75rem; cursor:pointer; transition:all 0.2s; }
+        .btn-exit:hover { background:rgba(224,82,82,0.1); }
 
         /* Timer */
-        .timer-bar-wrap {
-            background: var(--surface);
-            border: 1px solid rgba(255,255,255,0.06);
-            border-radius: 10px;
-            padding: 12px 20px;
-            text-align: center;
-            margin-bottom: 16px;
-            min-height: 52px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 14px;
-        }
+        .timer-bar-wrap { background:var(--surface); border:1px solid rgba(255,255,255,0.06); border-radius:10px; padding:12px 20px; text-align:center; margin-bottom:16px; min-height:52px; display:flex; align-items:center; justify-content:center; gap:14px; }
+        .timer-label { font-size:0.7rem; letter-spacing:0.2em; color:var(--text-dim); text-transform:uppercase; }
+        .timer-count { font-family:'Playfair Display',serif; font-size:1.8rem; color:var(--red); min-width:2ch; }
+        .timer-count.safe { color:var(--green); }
 
-        .timer-label { font-size: 0.7rem; letter-spacing: 0.2em; color: var(--text-dim); text-transform: uppercase; }
-        .timer-count { font-family: 'Playfair Display', serif; font-size: 1.8rem; color: var(--red); min-width: 2ch; }
-        .timer-count.safe { color: var(--green); }
-
-        /* Dealer zone */
-        .dealer-zone {
-            background: var(--surface);
-            border: 1px solid rgba(255,255,255,0.06);
-            border-radius: 14px;
-            padding: 20px;
-            margin-bottom: 16px;
-            text-align: center;
-        }
-
-        .zone-label {
-            font-size: 0.65rem;
-            letter-spacing: 0.3em;
-            text-transform: uppercase;
-            color: var(--text-dim);
-            margin-bottom: 12px;
-        }
-
-        .score-badge {
-            display: inline-block;
-            padding: 3px 12px;
-            background: var(--gold-dim);
-            border: 1px solid rgba(212,168,83,0.3);
-            border-radius: 50px;
-            font-size: 0.8rem;
-            color: var(--gold);
-            margin-top: 10px;
-        }
+        /* Dealer */
+        .dealer-zone { background:var(--surface); border:1px solid rgba(255,255,255,0.06); border-radius:14px; padding:20px; margin-bottom:16px; text-align:center; }
+        .zone-label { font-size:0.65rem; letter-spacing:0.3em; text-transform:uppercase; color:var(--text-dim); margin-bottom:12px; }
+        .score-badge { display:inline-block; padding:3px 12px; background:var(--gold-dim); border:1px solid rgba(212,168,83,0.3); border-radius:50px; font-size:0.8rem; color:var(--gold); margin-top:10px; }
+        .shoe-info { font-size:0.65rem; color:var(--text-dim); letter-spacing:0.1em; text-align:right; padding:0 4px 8px; }
 
         /* Cards */
-        .cards-row {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 6px;
-            justify-content: center;
-            min-height: 90px;
-            align-items: center;
-        }
+        .cards-row { display:flex; flex-wrap:wrap; gap:6px; justify-content:center; min-height:90px; align-items:center; }
+        .card { width:58px; height:90px; background:#fff; border-radius:8px; display:flex; flex-direction:column; align-items:center; justify-content:center; font-weight:700; font-size:1.1rem; box-shadow:0 4px 16px rgba(0,0,0,0.5); color:#1a1a1a; animation:dealCard 0.25s ease-out; }
+        @keyframes dealCard { from { opacity:0; transform:translateY(-12px) scale(0.9); } to { opacity:1; transform:translateY(0) scale(1); } }
+        .card.red-suit { color:#c0392b; }
+        .card.card-back { background:linear-gradient(135deg,#0e1a2e,#1c2d4a); border:2px solid rgba(212,168,83,0.4); color:var(--gold); font-size:1.4rem; }
+        .card.blackjack-glow { box-shadow:0 0 18px rgba(212,168,83,0.7),0 4px 16px rgba(0,0,0,0.5); }
 
-        .card {
-            width: 58px;
-            height: 90px;
-            background: #fff;
-            border-radius: 8px;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            font-weight: 700;
-            font-size: 1.1rem;
-            box-shadow: 0 4px 16px rgba(0,0,0,0.5);
-            position: relative;
-            color: #1a1a1a;
-            animation: dealCard 0.25s ease-out;
-        }
-
-        @keyframes dealCard {
-            from { opacity: 0; transform: translateY(-12px) scale(0.9); }
-            to   { opacity: 1; transform: translateY(0) scale(1); }
-        }
-
-        .card.red-suit { color: #c0392b; }
-        .card.card-back {
-            background: linear-gradient(135deg, #0e1a2e, #1c2d4a);
-            border: 2px solid rgba(212,168,83,0.4);
-            color: var(--gold);
-            font-size: 1.4rem;
-        }
-
-        /* Phase message */
-        .phase-banner {
-            text-align: center;
-            font-family: 'Playfair Display', serif;
-            font-size: 1rem;
-            letter-spacing: 0.2em;
-            color: var(--text-dim);
-            text-transform: uppercase;
-            padding: 10px;
-            min-height: 36px;
-        }
+        /* Phase banner */
+        .phase-banner { text-align:center; font-family:'Playfair Display',serif; font-size:1rem; letter-spacing:0.2em; color:var(--text-dim); text-transform:uppercase; padding:10px; min-height:36px; }
 
         /* Action buttons */
-        .action-zone {
-            display: flex;
-            justify-content: center;
-            gap: 12px;
-            margin-bottom: 20px;
-            flex-wrap: wrap;
-        }
+        .action-zone { display:flex; justify-content:center; gap:12px; margin-bottom:16px; flex-wrap:wrap; }
+        .btn-action { padding:14px 40px; border-radius:8px; font-family:'DM Sans',sans-serif; font-size:0.85rem; font-weight:600; letter-spacing:0.15em; text-transform:uppercase; cursor:pointer; transition:all 0.15s; border:1px solid; }
+        .btn-hit    { background:rgba(82,201,122,0.12);  border-color:rgba(82,201,122,0.5);  color:var(--green); }
+        .btn-hit:hover { background:rgba(82,201,122,0.22); transform:translateY(-1px); }
+        .btn-stand  { background:rgba(212,168,83,0.12);  border-color:rgba(212,168,83,0.5);  color:var(--gold); }
+        .btn-stand:hover { background:rgba(212,168,83,0.22); transform:translateY(-1px); }
+        .btn-double { background:rgba(180,130,220,0.12); border-color:rgba(180,130,220,0.5); color:#c49ae8; }
+        .btn-double:hover:not(:disabled) { background:rgba(180,130,220,0.22); transform:translateY(-1px); }
+        .btn-double:disabled { opacity:0.3; cursor:not-allowed; }
 
-        .btn-action {
-            padding: 14px 40px;
-            border-radius: 8px;
-            font-family: 'DM Sans', sans-serif;
-            font-size: 0.85rem;
-            font-weight: 600;
-            letter-spacing: 0.15em;
-            text-transform: uppercase;
-            cursor: pointer;
-            transition: all 0.15s;
-            border: 1px solid;
-        }
-
-        .btn-hit {
-            background: rgba(82,201,122,0.12);
-            border-color: rgba(82,201,122,0.5);
-            color: var(--green);
-        }
-
-        .btn-hit:hover { background: rgba(82,201,122,0.22); transform: translateY(-1px); }
-
-        .btn-stand {
-            background: rgba(212,168,83,0.12);
-            border-color: rgba(212,168,83,0.5);
-            color: var(--gold);
-        }
-
-        .btn-stand:hover { background: rgba(212,168,83,0.22); transform: translateY(-1px); }
+        /* Opt-in bar */
+        #optin-bar { background:var(--surface2); border:1px solid rgba(212,168,83,0.2); border-radius:12px; padding:16px 20px; margin-bottom:16px; display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap; }
+        .optin-text { font-size:0.85rem; color:var(--text-dim); }
+        .optin-text strong { color:var(--gold); }
+        .optin-btns { display:flex; gap:8px; }
+        .btn-play { padding:10px 24px; background:linear-gradient(135deg,#c49a3a,#e8c56a,#c49a3a); border:none; border-radius:8px; color:#1a1005; font-family:'DM Sans',sans-serif; font-size:0.8rem; font-weight:600; letter-spacing:0.1em; text-transform:uppercase; cursor:pointer; transition:all 0.15s; }
+        .btn-play:hover { opacity:0.9; transform:translateY(-1px); }
+        .btn-play:disabled { opacity:0.4; cursor:not-allowed; transform:none; }
+        .btn-watch { padding:10px 20px; background:transparent; border:1px solid rgba(255,255,255,0.15); border-radius:8px; color:var(--text-dim); font-family:'DM Sans',sans-serif; font-size:0.8rem; cursor:pointer; transition:all 0.15s; }
+        .btn-watch:hover { border-color:rgba(255,255,255,0.3); color:var(--text); }
+        .btn-cancel-round { padding:10px 20px; background:transparent; border:1px solid rgba(224,82,82,0.35); border-radius:8px; color:var(--red); font-family:'DM Sans',sans-serif; font-size:0.8rem; cursor:pointer; transition:all 0.15s; }
+        .btn-cancel-round:hover { background:rgba(224,82,82,0.1); }
 
         /* Players grid */
-        #players-area {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 12px;
-            justify-content: center;
-            flex: 1;
-        }
+        #players-area { display:flex; flex-wrap:wrap; gap:12px; justify-content:center; flex:1; }
+        .player-card { background:var(--surface); border:1px solid rgba(255,255,255,0.06); border-radius:12px; padding:16px; text-align:center; min-width:160px; transition:border-color 0.3s; }
+        .player-card.is-me { border-color:rgba(212,168,83,0.4); }
+        .player-card.win  { border-color:rgba(82,201,122,0.5); animation:flashWin 0.4s ease; }
+        .player-card.lose { border-color:rgba(224,82,82,0.4); }
+        .player-card.push { border-color:rgba(212,168,83,0.4); }
+        @keyframes flashWin { 0%,100% { box-shadow:none; } 50% { box-shadow:0 0 30px rgba(82,201,122,0.3); } }
+        .player-name { font-size:0.7rem; letter-spacing:0.15em; text-transform:uppercase; color:var(--text-dim); margin-bottom:8px; }
+        .player-name.me { color:var(--gold); }
+        .player-status { font-size:0.8rem; font-weight:600; margin-bottom:8px; min-height:20px; }
+        .status-playing { color:var(--text); }
+        .status-stood   { color:var(--gold-light); }
+        .status-bust    { color:var(--red); }
+        .status-win     { color:var(--green); }
+        .status-push    { color:var(--gold); }
+        .status-watching, .status-waiting { color:var(--text-dim); font-style:italic; }
+        .status-ready   { color:var(--green); }
+        .player-bet { font-size:0.65rem; color:var(--text-dim); margin-top:8px; }
+        .result-label { display:inline-block; padding:4px 14px; border-radius:50px; font-size:0.75rem; font-weight:600; letter-spacing:0.1em; text-transform:uppercase; margin-top:6px; }
+        .result-win  { background:rgba(82,201,122,0.2);  color:var(--green); }
+        .result-lose { background:rgba(224,82,82,0.2);   color:var(--red);   }
+        .result-push { background:rgba(212,168,83,0.15); color:var(--gold);  }
 
-        .player-card {
-            background: var(--surface);
-            border: 1px solid rgba(255,255,255,0.06);
-            border-radius: 12px;
-            padding: 16px;
-            text-align: center;
-            min-width: 160px;
-            transition: border-color 0.3s;
-        }
-
-        .player-card.is-me { border-color: rgba(212,168,83,0.4); }
-        .player-card.win  { border-color: rgba(82,201,122,0.5); animation: flashWin 0.4s ease; }
-        .player-card.lose { border-color: rgba(224,82,82,0.4); }
-        .player-card.push { border-color: rgba(212,168,83,0.4); }
-
-        @keyframes flashWin {
-            0%, 100% { box-shadow: none; }
-            50% { box-shadow: 0 0 30px rgba(82,201,122,0.3); }
-        }
-
-        .player-name {
-            font-size: 0.7rem;
-            letter-spacing: 0.15em;
-            text-transform: uppercase;
-            color: var(--text-dim);
-            margin-bottom: 8px;
-        }
-
-        .player-name.me { color: var(--gold); }
-
-        .player-status {
-            font-size: 0.8rem;
-            font-weight: 600;
-            margin-bottom: 8px;
-            min-height: 20px;
-        }
-
-        .status-playing { color: var(--text); }
-        .status-stood  { color: var(--gold-light); }
-        .status-bust   { color: var(--red); }
-        .status-win    { color: var(--green); }
-        .status-push   { color: var(--gold); }
-        .status-spectating { color: var(--text-dim); font-style: italic; }
-        .status-waiting    { color: var(--text-dim); }
-        .status-ready      { color: var(--text-dim); }
-
-        .player-bet {
-            font-size: 0.65rem;
-            color: var(--text-dim);
-            margin-top: 8px;
-        }
-
-        /* Toast notifications */
-        #toast {
-            position: fixed;
-            bottom: 30px;
-            left: 50%;
-            transform: translateX(-50%) translateY(20px);
-            background: var(--surface2);
-            border: 1px solid rgba(212,168,83,0.3);
-            border-radius: 50px;
-            padding: 12px 24px;
-            font-size: 0.85rem;
-            opacity: 0;
-            transition: all 0.3s;
-            z-index: 1000;
-            white-space: nowrap;
-            pointer-events: none;
-        }
-
-        #toast.show {
-            opacity: 1;
-            transform: translateX(-50%) translateY(0);
-        }
-
-        /* Result overlay */
-        .result-label {
-            display: inline-block;
-            padding: 4px 14px;
-            border-radius: 50px;
-            font-size: 0.75rem;
-            font-weight: 600;
-            letter-spacing: 0.1em;
-            text-transform: uppercase;
-            margin-top: 6px;
-        }
-
-        .result-win  { background: rgba(82,201,122,0.2); color: var(--green); }
-        .result-lose { background: rgba(224,82,82,0.2); color: var(--red); }
-        .result-push { background: rgba(212,168,83,0.15); color: var(--gold); }
+        /* Toast */
+        #toast { position:fixed; bottom:30px; left:50%; transform:translateX(-50%) translateY(20px); background:var(--surface2); border:1px solid rgba(212,168,83,0.3); border-radius:50px; padding:12px 24px; font-size:0.85rem; opacity:0; transition:all 0.3s; z-index:1000; white-space:nowrap; pointer-events:none; }
+        #toast.show { opacity:1; transform:translateX(-50%) translateY(0); }
     </style>
 </head>
 <body>
@@ -560,14 +156,8 @@
     <div class="casino-logo">ROYAL GEM</div>
     <div class="casino-subtitle">Casino &nbsp;·&nbsp; Blackjack</div>
     <div class="auth-box">
-        <div class="form-group">
-            <label>Username</label>
-            <input id="username" placeholder="Enter username" autocomplete="off">
-        </div>
-        <div class="form-group">
-            <label>Password</label>
-            <input id="password" type="password" placeholder="Enter password">
-        </div>
+        <div class="form-group"><label>Username</label><input id="username" placeholder="Enter username" autocomplete="off"></div>
+        <div class="form-group"><label>Password</label><input id="password" type="password" placeholder="Enter password"></div>
         <button class="btn-primary" onclick="auth()">ENTER CASINO</button>
     </div>
 </div>
@@ -576,7 +166,7 @@
 <div id="lobby" class="hidden">
     <div class="lobby-header">
         <div class="lobby-logo">Royal Gem</div>
-        <div style="display:flex; align-items:center; gap:12px; flex-wrap:wrap;">
+        <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
             <button class="btn-daily" onclick="socket.emit('claimDaily')">🎁 Daily Bonus</button>
             <div class="balance-pill">💎 <span id="gemDisplay">0</span></div>
         </div>
@@ -594,8 +184,16 @@
     </div>
 
     <div class="timer-bar-wrap" id="timerWrap">
-        <div class="timer-label" id="timerLabel">Waiting for players</div>
+        <div class="timer-label" id="timerLabel">Watching table</div>
         <div class="timer-count safe" id="timerCount" style="display:none;"></div>
+    </div>
+
+    <!-- Opt-in bar: shown when player is watching/waiting and round isn't active -->
+    <div id="optin-bar">
+        <div class="optin-text" id="optinText">Ready to play? <strong id="optinFee">25</strong> 💎 will be charged when cards are dealt.</div>
+        <div class="optin-btns" id="optinBtns">
+            <button class="btn-play" id="btn-play-next" onclick="joinNextRound()">▶ Play Next Round</button>
+        </div>
     </div>
 
     <div class="dealer-zone">
@@ -603,12 +201,14 @@
         <div class="cards-row" id="dealerCards"></div>
         <div class="score-badge" id="dealerScore">?</div>
     </div>
+    <div class="shoe-info" id="shoeInfo"></div>
 
     <div class="phase-banner" id="phaseBanner"></div>
 
     <div class="action-zone hidden" id="action-controls">
         <button class="btn-action btn-hit" onclick="hit()">Hit</button>
         <button class="btn-action btn-stand" onclick="stand()">Stand</button>
+        <button class="btn-action btn-double" id="btn-double" onclick="doubleDown()">Double Down</button>
     </div>
 
     <div id="players-area"></div>
@@ -621,6 +221,7 @@
     let currentRoom = '';
     let myUsername = '';
     let myGems = 0;
+    let myStatus = 'watching'; // track local player status
 
     // ── AUTH
     function auth() {
@@ -631,9 +232,7 @@
     }
 
     document.addEventListener('keydown', e => {
-        if (e.key === 'Enter') {
-            if (!document.getElementById('auth-screen').classList.contains('hidden')) auth();
-        }
+        if (e.key === 'Enter' && !document.getElementById('auth-screen').classList.contains('hidden')) auth();
     });
 
     socket.on('authSuccess', ({ username, gems }) => {
@@ -645,26 +244,38 @@
         document.getElementById('gameGemDisplay').innerText = gems;
     });
 
+    // ── LOBBY
     socket.on('roomList', (rooms) => {
         const badges = ['badge-low', 'badge-mid', 'badge-high'];
         const badgeLabels = ['Standard', 'High Stakes', 'VIP'];
-        document.getElementById('roomList').innerHTML = rooms.map((r, i) => `
-            <div class="table-card" onclick="join('${r.name}')">
+        document.getElementById('roomList').innerHTML = rooms.map((r, i) => {
+            let statusHtml = '';
+            if (r.phase === 'playing') {
+                statusHtml = `<div style="font-size:0.7rem;color:var(--red);margin-top:6px;">🔴 Round in progress — join free to watch</div>`;
+            } else if (r.phase === 'results') {
+                statusHtml = `<div style="font-size:0.7rem;color:var(--gold);margin-top:6px;">⏳ Results showing — new round soon</div>`;
+            } else if (r.timeLeft < 15 && r.timeLeft > 0) {
+                statusHtml = `<div style="font-size:0.7rem;color:var(--gold);margin-top:6px;">⏱ Round starts in ${r.timeLeft}s</div>`;
+            } else {
+                statusHtml = `<div style="font-size:0.7rem;color:var(--text-dim);margin-top:6px;">Waiting for players</div>`;
+            }
+            return `<div class="table-card" onclick="join('${r.name}')">
                 <div class="table-badge ${badges[i] || 'badge-mid'}">${badgeLabels[i] || 'Table'}</div>
                 <div class="table-name">${r.name}</div>
                 <div class="table-fee">Entry: ${r.fee} 💎 per round</div>
                 <div class="table-players">${r.players} player${r.players !== 1 ? 's' : ''} at table</div>
-            </div>`).join('');
+                ${statusHtml}
+            </div>`;
+        }).join('');
     });
 
     // ── NOTIFICATIONS
     socket.on('notification', showToast);
-
     function showToast(msg) {
         const t = document.getElementById('toast');
         t.innerText = msg;
         t.classList.add('show');
-        setTimeout(() => t.classList.remove('show'), 3200);
+        setTimeout(() => t.classList.remove('show'), 3500);
     }
 
     // ── BALANCE
@@ -675,24 +286,31 @@
     });
 
     // ── TIMER
-    socket.on('timerUpdate', (s) => {
+    socket.on('timerUpdate', ({ timeLeft, cancelled }) => {
         const label = document.getElementById('timerLabel');
         const count = document.getElementById('timerCount');
-        if (s <= 0) {
-            label.innerText = 'Dealing cards...';
+        if (cancelled || timeLeft <= 0) {
+            if (cancelled) { label.innerText = 'Waiting for players'; }
+            else { label.innerText = 'Dealing cards...'; }
             count.style.display = 'none';
         } else {
-            label.innerText = 'Next round starts in';
+            label.innerText = 'Round starts in';
             count.style.display = 'block';
-            count.innerText = s;
-            count.className = 'timer-count ' + (s <= 5 ? '' : 'safe');
+            count.innerText = timeLeft;
+            count.className = 'timer-count ' + (timeLeft <= 5 ? '' : 'safe');
         }
     });
 
+    // ── PROMPT NEXT ROUND (after results clear)
+    socket.on('promptNextRound', ({ entryFee }) => {
+        updateOptinBar('watching', entryFee);
+    });
+
     // ── ROUND RESULT
-    socket.on('roundResult', ({ outcome, score, dealerScore }) => {
-        if (outcome === 'win') showToast(`🏆 You win! Your ${score} beat dealer's ${dealerScore}`);
-        else if (outcome === 'push') showToast(`🤝 Push! Both scored ${score}`);
+    socket.on('roundResult', ({ outcome, score, dealerScore, isBlackjack }) => {
+        if (isBlackjack) showToast('🃏 BLACKJACK! Pays 3:2!');
+        else if (outcome === 'win')  showToast(`🏆 You win! Your ${score} beat dealer's ${dealerScore}`);
+        else if (outcome === 'push') showToast(`🤝 Push! Both scored ${score} — bet returned`);
         else showToast(`💸 Dealer wins with ${dealerScore}`);
     });
 
@@ -703,7 +321,6 @@
         socket.emit('joinRoom', name);
         document.getElementById('lobby').classList.add('hidden');
         document.getElementById('gameArea').classList.remove('hidden');
-        // Reset timer display
         document.getElementById('timerLabel').innerText = 'Joining table...';
         document.getElementById('timerCount').style.display = 'none';
     }
@@ -715,39 +332,87 @@
         document.getElementById('players-area').innerHTML = '';
         document.getElementById('dealerCards').innerHTML = '';
         currentRoom = '';
+        myStatus = 'watching';
+    }
+
+    // ── OPT-IN / CANCEL
+    function joinNextRound() {
+        socket.emit('joinNextRound', currentRoom);
+    }
+
+    function cancelRound() {
+        socket.emit('cancelRound', currentRoom);
+    }
+
+    function updateOptinBar(status, entryFee) {
+        const bar = document.getElementById('optin-bar');
+        const text = document.getElementById('optinText');
+        const btns = document.getElementById('optinBtns');
+        document.getElementById('optinFee').innerText = entryFee || '';
+
+        if (status === 'playing' || status === 'stood' || status === 'bust') {
+            // Mid-hand — hide optin bar entirely
+            bar.classList.add('hidden');
+        } else if (status === 'ready') {
+            // Opted in, waiting for round
+            bar.classList.remove('hidden');
+            text.innerHTML = `✅ You're in! <strong>${entryFee}</strong> 💎 will be charged when cards are dealt.`;
+            btns.innerHTML = `<button class="btn-cancel-round" onclick="cancelRound()">✕ Cancel</button>`;
+        } else {
+            // watching / waiting
+            bar.classList.remove('hidden');
+            const canAfford = myGems >= (entryFee || 0);
+            text.innerHTML = `Ready to play? <strong>${entryFee}</strong> 💎 charged when cards are dealt — <em>not before</em>.`;
+            btns.innerHTML = `<button class="btn-play" id="btn-play-next" onclick="joinNextRound()" ${!canAfford ? 'disabled title="Not enough gems"' : ''}>▶ Play Next Round</button>`;
+        }
     }
 
     // ── GAME ACTIONS
-    function hit()   { socket.emit('hit', currentRoom); }
-    function stand() { socket.emit('stand', currentRoom); }
+    function hit()        { socket.emit('hit', currentRoom); }
+    function stand()      { socket.emit('stand', currentRoom); }
+    function doubleDown() { socket.emit('doubleDown', currentRoom); }
 
     // ── GAME STATE
     socket.on('updateGame', (room) => {
-        // Phase banner
-        const banner = document.getElementById('phaseBanner');
-        if (room.phase === 'betting') banner.innerText = 'Waiting for players...';
-        else if (room.phase === 'playing') banner.innerText = '';
-        else if (room.phase === 'results') banner.innerText = 'Round over';
-        else banner.innerText = '';
+        const me = room.players.find(p => p.name === myUsername);
+        myStatus = me ? me.status : 'watching';
 
-        // Timer label when in betting with no explicit timer event
-        if (room.phase === 'betting') {
-            document.getElementById('timerLabel').innerText = 'Waiting for players';
-            document.getElementById('timerCount').style.display = 'none';
-        } else if (room.phase === 'playing') {
-            document.getElementById('timerLabel').innerText = 'Round in progress';
-            document.getElementById('timerCount').style.display = 'none';
-        } else if (room.phase === 'results') {
-            document.getElementById('timerLabel').innerText = 'Next round starting soon...';
-            document.getElementById('timerCount').style.display = 'none';
+        // Shoe info
+        if (room.deckRemaining !== undefined) {
+            const pct = Math.round((room.deckRemaining / room.deckTotal) * 100);
+            const reshuffleNote = room.reshuffleNext ? ' — 🔀 Reshuffling after this round' : '';
+            document.getElementById('shoeInfo').innerText = `Shoe: ${room.deckRemaining} cards remaining (${pct}%)${reshuffleNote}`;
         }
 
+        // Timer label
+        const label = document.getElementById('timerLabel');
+        const count = document.getElementById('timerCount');
+        if (room.phase === 'playing') {
+            label.innerText = 'Round in progress';
+            count.style.display = 'none';
+        } else if (room.phase === 'results') {
+            label.innerText = 'Results — next round soon';
+            count.style.display = 'none';
+        } else if (room.phase === 'betting' && !room.players.some(p => p.status === 'ready')) {
+            label.innerText = 'Waiting for players';
+            count.style.display = 'none';
+        }
+
+        // Opt-in bar
+        updateOptinBar(myStatus, room.entryFee);
+
+        // Phase banner
+        const banner = document.getElementById('phaseBanner');
+        if (room.phase === 'betting') banner.innerText = room.players.some(p => p.status === 'ready') ? 'Round starting soon...' : 'Waiting for players...';
+        else if (room.phase === 'results') banner.innerText = 'Round complete';
+        else banner.innerText = '';
+
         // Dealer cards
-        const dealerCards = room.dealer.hand.map((c, i) => {
-            if (room.phase === 'playing' && i === 1) return cardHTML({ value: '?', suit: '' }, true);
+        const dealerHtml = room.dealer.hand.map((c, i) => {
+            if (room.phase === 'playing' && i === 1) return cardHTML(null, true);
             return cardHTML(c);
         }).join('');
-        document.getElementById('dealerCards').innerHTML = dealerCards || '<span style="color:var(--text-dim); font-size:0.8rem;">Waiting...</span>';
+        document.getElementById('dealerCards').innerHTML = dealerHtml || '<span style="color:var(--text-dim);font-size:0.8rem;">Waiting...</span>';
 
         // Dealer score
         const ds = document.getElementById('dealerScore');
@@ -755,12 +420,15 @@
         else if (room.dealer.hand.length) ds.innerText = calculateScore(room.dealer.hand);
         else ds.innerText = '?';
 
-        // My player
-        const me = room.players.find(p => p.name === myUsername);
-
-        // Action controls — show only if I'm actively playing
+        // Action controls
         const showActions = me && me.status === 'playing' && room.phase === 'playing';
         document.getElementById('action-controls').classList.toggle('hidden', !showActions);
+        const dblBtn = document.getElementById('btn-double');
+        if (dblBtn && me) {
+            const canDouble = me.hand && me.hand.length === 2 && myGems >= me.bet;
+            dblBtn.disabled = !canDouble;
+            dblBtn.title = canDouble ? 'Double your bet — one card then stand' : (me.hand && me.hand.length > 2 ? 'First two cards only' : 'Not enough gems');
+        }
 
         // Players
         document.getElementById('players-area').innerHTML = room.players.map(p => {
@@ -770,39 +438,37 @@
             let outcomeLabel = '';
 
             if (room.phase === 'results' && p.outcome) {
-                statusClass = 'status-' + p.outcome;
-                statusText = p.outcome === 'win' ? `WIN (${p.score})` : p.outcome === 'push' ? `PUSH (${p.score})` : `LOSE (${p.score})`;
-                outcomeLabel = `<div class="result-label result-${p.outcome}">${p.outcome === 'win' ? '+ Gems' : p.outcome === 'push' ? 'Returned' : 'Lost'}</div>`;
-            } else if (p.status === 'playing') {
-                statusText = `Score: ${p.score}`;
-            } else if (p.status === 'stood') {
-                statusText = `Stood: ${p.score}`;
-            } else if (p.status === 'bust') {
-                statusText = `Bust: ${p.score}`;
-            } else if (p.status === 'spectating') {
-                statusText = 'Spectating';
-            } else if (p.status === 'ready') {
-                statusText = 'Ready';
-            } else if (p.status === 'waiting') {
-                statusText = 'Waiting';
-            }
+                const oc = p.outcome === 'blackjack' ? 'win' : p.outcome;
+                statusClass = 'status-' + oc;
+                if (p.outcome === 'blackjack') statusText = `BLACKJACK! (${p.score})`;
+                else if (p.outcome === 'win')   statusText = `WIN (${p.score})`;
+                else if (p.outcome === 'push')  statusText = `PUSH (${p.score})`;
+                else                            statusText = `LOSE (${p.score})`;
+                outcomeLabel = `<div class="result-label result-${oc}">${p.outcome === 'blackjack' ? '🃏 3:2 Payout' : p.outcome === 'win' ? '+ Gems' : p.outcome === 'push' ? 'Returned' : 'Lost'}</div>`;
+            } else if (p.status === 'playing')  statusText = `Score: ${p.score}`;
+            else if (p.status === 'stood')       statusText = `Stood: ${p.score}`;
+            else if (p.status === 'bust')        statusText = `Bust: ${p.score}`;
+            else if (p.status === 'ready')       statusText = '✅ Ready';
+            else if (p.status === 'watching')    statusText = 'Watching';
+            else if (p.status === 'waiting')     statusText = 'Watching';
 
-            const cardsHtml = p.hand.map(c => cardHTML(c)).join('');
+            const playerBJ = p.hand && p.hand.length === 2 && calculateScore(p.hand) === 21;
+            const cardsHtml = p.hand.map(c => cardHTML(c, false, playerBJ && room.phase === 'results')).join('');
 
-            return `<div class="player-card ${isMe ? 'is-me' : ''} ${p.outcome || ''}">
+            return `<div class="player-card ${isMe ? 'is-me' : ''} ${p.outcome ? (p.outcome === 'blackjack' ? 'win' : p.outcome) : ''}">
                 <div class="player-name ${isMe ? 'me' : ''}">${isMe ? '⭐ ' : ''}${p.name}</div>
                 <div class="player-status ${statusClass}">${statusText}</div>
-                <div class="cards-row">${cardsHtml || '<span style="color:var(--text-dim);font-size:0.75rem;">No cards</span>'}</div>
-                ${p.bet > 0 ? `<div class="player-bet">Stake: ${p.bet} 💎</div>` : ''}
+                <div class="cards-row">${cardsHtml || '<span style="color:var(--text-dim);font-size:0.7rem;">—</span>'}</div>
+                ${p.bet > 0 ? `<div class="player-bet">Stake: ${p.bet} 💎${p.doubled ? ' (doubled)' : ''}</div>` : ''}
                 ${outcomeLabel}
             </div>`;
         }).join('');
     });
 
-    function cardHTML(card, isBack = false) {
+    function cardHTML(card, isBack = false, glow = false) {
         if (isBack) return `<div class="card card-back">♦</div>`;
         const redSuits = ['♥', '♦'];
-        const cls = redSuits.includes(card.suit) ? 'red-suit' : '';
+        const cls = (redSuits.includes(card.suit) ? 'red-suit' : '') + (glow ? ' blackjack-glow' : '');
         return `<div class="card ${cls}">${card.value}${card.suit}</div>`;
     }
 
