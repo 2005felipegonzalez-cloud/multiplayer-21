@@ -8,9 +8,9 @@ const io = new Server(server, { cors: { origin: "*" } });
 app.use(express.static('public'));
 
 let rooms = {
-    "The Lounge": { players: [], dealer: { hand: [], score: 0 }, phase: 'betting', minBet: 10, timeLeft: 15, timer: null, deck: [] },
-    "High Roller": { players: [], dealer: { hand: [], score: 0 }, phase: 'betting', minBet: 100, timeLeft: 15, timer: null, deck: [] },
-    "VIP Suite": { players: [], dealer: { hand: [], score: 0 }, phase: 'betting', minBet: 500, timeLeft: 15, timer: null, deck: [] }
+    "The Lounge": { players: [], dealer: { hand: [], score: 0 }, phase: 'betting', entryFee: 25, timeLeft: 15, timer: null, deck: [] },
+    "High Roller": { players: [], dealer: { hand: [], score: 0 }, phase: 'betting', entryFee: 100, timeLeft: 15, timer: null, deck: [] },
+    "VIP Suite": { players: [], dealer: { hand: [], score: 0 }, phase: 'betting', entryFee: 500, timeLeft: 15, timer: null, deck: [] }
 };
 let users = {}; 
 
@@ -22,15 +22,41 @@ io.on('connection', (socket) => {
         if (users[username].password === password) {
             currentUser = username;
             socket.emit('authSuccess', { username, gems: users[username].gems });
-            socket.emit('roomList', Object.keys(rooms).map(name => ({ name, min: rooms[name].minBet })));
+            socket.emit('roomList', Object.keys(rooms).map(name => ({ name, fee: rooms[name].entryFee })));
         }
     });
 
     socket.on('joinRoom', (roomId) => {
         if (!currentUser || !rooms[roomId]) return;
+        const room = rooms[roomId];
+
+        // Check if they can afford the entry fee
+        if (users[currentUser].gems < room.entryFee) {
+            return socket.emit('notification', "Not enough gems for this table!");
+        }
+
         socket.join(roomId);
+        // Remove from other rooms
         Object.keys(rooms).forEach(r => rooms[r].players = rooms[r].players.filter(p => p.name !== currentUser));
-        rooms[roomId].players.push({ id: socket.id, name: currentUser, hand: [], score: 0, bet: 0, status: 'waiting' });
+
+        // AUTOMATIC BET: Deduct gems and set status to ready immediately
+        users[currentUser].gems -= room.entryFee;
+        rooms[roomId].players.push({ 
+            id: socket.id, 
+            name: currentUser, 
+            hand: [], 
+            score: 0, 
+            bet: room.entryFee, 
+            status: 'ready' 
+        });
+
+        socket.emit('updateBalance', users[currentUser].gems);
+        
+        // Start 15s timer if they are the first ones ready
+        if (room.players.filter(p => p.status === 'ready').length === 1 && room.phase === 'betting') {
+            startRoomTimer(roomId);
+        }
+
         io.to(roomId).emit('updateGame', rooms[roomId]);
     });
 
@@ -39,20 +65,6 @@ io.on('connection', (socket) => {
             rooms[roomId].players = rooms[roomId].players.filter(p => p.id !== socket.id);
             socket.leave(roomId);
             io.to(roomId).emit('updateGame', rooms[roomId]);
-        }
-    });
-
-    socket.on('placeBet', ({ roomId, amount }) => {
-        const room = rooms[roomId];
-        const player = room?.players.find(p => p.id === socket.id);
-        if (player && users[currentUser].gems >= amount && amount >= room.minBet && room.phase === 'betting') {
-            player.bet = amount;
-            users[currentUser].gems -= amount;
-            player.status = 'ready';
-            socket.emit('updateBalance', users[currentUser].gems);
-            if (room.players.filter(p => p.status === 'ready').length === 1) startRoomTimer(roomId);
-            if (room.players.every(p => p.status === 'ready')) { clearInterval(room.timer); startDeal(roomId); }
-            else { io.to(roomId).emit('updateGame', room); }
         }
     });
 
@@ -94,7 +106,10 @@ function startRoomTimer(roomId) {
     room.timer = setInterval(() => {
         room.timeLeft--;
         io.to(roomId).emit('timerUpdate', room.timeLeft);
-        if (room.timeLeft <= 0) { clearInterval(room.timer); startDeal(roomId); }
+        if (room.timeLeft <= 0) { 
+            clearInterval(room.timer); 
+            startDeal(roomId); 
+        }
     }, 1000);
 }
 
@@ -144,9 +159,23 @@ function resolveRound(roomId) {
     setTimeout(() => {
         if(!rooms[roomId]) return;
         room.phase = 'betting';
-        room.players.forEach(p => { p.hand = []; p.score = 0; p.status = 'waiting'; p.bet = 0; });
+        room.players.forEach(p => {
+            p.hand = []; 
+            p.score = 0; 
+            p.bet = room.entryFee; // Auto-bet for next round
+            p.status = 'ready'; 
+            // Deduct again for the new round
+            if (users[p.name].gems >= room.entryFee) {
+                users[p.name].gems -= room.entryFee;
+                io.to(p.id).emit('updateBalance', users[p.name].gems);
+            } else {
+                p.status = 'waiting'; // Broke, can't play next round
+            }
+        });
         room.dealer = { hand: [], score: 0 };
         io.to(roomId).emit('updateGame', room);
+        // Start timer for next round immediately since players are ready
+        if (room.players.some(p => p.status === 'ready')) startRoomTimer(roomId);
     }, 6000);
 }
 
