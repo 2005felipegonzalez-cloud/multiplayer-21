@@ -31,7 +31,9 @@ io.on('connection', (socket) => {
         socket.emit('roomList', Object.keys(rooms).map(name => ({
             name,
             fee: rooms[name].entryFee,
-            players: rooms[name].players.length
+            players: rooms[name].players.length,
+            phase: rooms[name].phase,
+            timeLeft: rooms[name].timeLeft
         })));
     });
 
@@ -98,6 +100,7 @@ io.on('connection', (socket) => {
 
         socket.emit('updateBalance', users[currentUser].gems);
         io.to(roomId).emit('updateGame', sanitizeRoom(room));
+        broadcastLobby();
 
         // Start timer if this is the first ready player
         if (room.phase === 'betting' && !room.timer && room.players.some(p => p.status === 'ready')) {
@@ -110,10 +113,9 @@ io.on('connection', (socket) => {
         const room = rooms[roomId];
         const player = room.players.find(p => p.id === socket.id);
 
-        // Refund bet if they're still in betting phase
-        if (player && room.phase === 'betting' && player.bet > 0 && currentUser) {
-            users[currentUser].gems += player.bet;
-            socket.emit('updateBalance', users[currentUser].gems);
+        // No refund — leaving forfeits your bet (spectators/waiting had no bet so no loss)
+        if (player && player.bet > 0 && room.phase === 'betting') {
+            socket.emit('notification', `You left the table — your ${player.bet} 💎 stake is forfeited.`);
         }
 
         room.players = room.players.filter(p => p.id !== socket.id);
@@ -121,7 +123,7 @@ io.on('connection', (socket) => {
         currentRoomId = null;
         io.to(roomId).emit('updateGame', sanitizeRoom(room));
 
-        // If no ready players and betting phase, stop timer
+        // If no ready players left during betting, cancel the timer
         if (room.phase === 'betting' && !room.players.some(p => p.status === 'ready')) {
             if (room.timer) { clearInterval(room.timer); room.timer = null; }
             room.timeLeft = 15;
@@ -135,9 +137,32 @@ io.on('connection', (socket) => {
         const player = room.players.find(p => p.id === socket.id);
         if (!player || player.status !== 'playing') return;
 
-        player.hand.push(room.deck.pop());
+        player.hand.push(dealCard(room));
         player.score = calculateScore(player.hand);
         if (player.score > 21) player.status = 'bust';
+        io.to(roomId).emit('updateGame', sanitizeRoom(room));
+        checkAutoProceed(roomId);
+    });
+
+    socket.on('doubleDown', (roomId) => {
+        const room = rooms[roomId];
+        if (!room) return;
+        const player = room.players.find(p => p.id === socket.id);
+        // Double down only on first two cards
+        if (!player || player.status !== 'playing' || player.hand.length !== 2) return;
+        // Player must have enough gems to double their bet
+        if (users[player.name].gems < player.bet) {
+            return socket.emit('notification', "Not enough gems to double down!");
+        }
+        // Charge the extra bet
+        users[player.name].gems -= player.bet;
+        player.bet *= 2;
+        io.to(player.id).emit('updateBalance', users[player.name].gems);
+        // Deal exactly one card then stand
+        player.hand.push(dealCard(room));
+        player.score = calculateScore(player.hand);
+        player.status = player.score > 21 ? 'bust' : 'stood';
+        player.doubled = true;
         io.to(roomId).emit('updateGame', sanitizeRoom(room));
         checkAutoProceed(roomId);
     });
@@ -155,23 +180,28 @@ io.on('connection', (socket) => {
     socket.on('disconnect', () => {
         if (currentRoomId && rooms[currentRoomId]) {
             const room = rooms[currentRoomId];
-            const player = room.players.find(p => p.id === socket.id);
-            if (player && room.phase === 'betting' && player.bet > 0 && currentUser) {
-                users[currentUser].gems += player.bet;
-            }
+            // No refund on disconnect — bet is forfeited
             room.players = room.players.filter(p => p.id !== socket.id);
             io.to(currentRoomId).emit('updateGame', sanitizeRoom(room));
+            if (room.phase === 'betting' && !room.players.some(p => p.status === 'ready')) {
+                if (room.timer) { clearInterval(room.timer); room.timer = null; }
+            }
         }
     });
 });
 
 function sanitizeRoom(room) {
+    const totalCards = 7 * 52;
+    const remaining = room.deck ? room.deck.length : totalCards;
     return {
         players: room.players,
         dealer: room.dealer,
         phase: room.phase,
         entryFee: room.entryFee,
-        timeLeft: room.timeLeft
+        timeLeft: room.timeLeft,
+        deckRemaining: remaining,
+        deckTotal: totalCards,
+        reshuffleNext: room.reshuffleNext || false
     };
 }
 
@@ -200,13 +230,13 @@ function startDeal(roomId) {
     }
 
     room.phase = 'playing';
-    room.deck = createDeck();
-    room.dealer.hand = [room.deck.pop(), room.deck.pop()];
+    if (!room.deck || room.deck.length < 50 || room.reshuffleNext) { room.deck = createShoe(); room.reshuffleNext = false; }
+    room.dealer.hand = [dealCard(room), dealCard(room)];
     room.dealer.score = 0;
 
     room.players.forEach(p => {
         if (p.status === 'ready') {
-            p.hand = [room.deck.pop(), room.deck.pop()];
+            p.hand = [dealCard(room), dealCard(room)];
             p.score = calculateScore(p.hand);
             p.status = 'playing';
             // Auto-stand on blackjack
@@ -215,6 +245,7 @@ function startDeal(roomId) {
     });
 
     io.to(roomId).emit('updateGame', sanitizeRoom(room));
+    broadcastLobby();
     checkAutoProceed(roomId);
 }
 
@@ -230,8 +261,9 @@ function dealerPlay(roomId) {
     const room = rooms[roomId];
     room.phase = 'results';
     room.dealer.score = calculateScore(room.dealer.hand);
-    while (room.dealer.score < 17) {
-        room.dealer.hand.push(room.deck.pop());
+    // Casino rule: dealer hits on soft 17 (H17)
+    while (room.dealer.score < 17 || isSoft17(room.dealer.hand)) {
+        room.dealer.hand.push(dealCard(room));
         room.dealer.score = calculateScore(room.dealer.hand);
     }
     resolveRound(roomId);
@@ -245,7 +277,20 @@ function resolveRound(roomId) {
         if (p.status === 'spectating' || p.status === 'waiting') return;
 
         let outcome = 'lose';
+        const playerBJ = isBlackjack(p.hand);
+        const dealerBJ = isBlackjack(room.dealer.hand);
+
         if (p.status === 'bust') {
+            outcome = 'lose';
+        } else if (playerBJ && dealerBJ) {
+            // Both blackjack = push
+            outcome = 'push';
+            users[p.name].gems += p.bet;
+        } else if (playerBJ) {
+            // Blackjack pays 3:2
+            outcome = 'blackjack';
+            users[p.name].gems += p.bet + Math.floor(p.bet * 1.5);
+        } else if (dealerBJ) {
             outcome = 'lose';
         } else if (dealerScore > 21 || p.score > dealerScore) {
             outcome = 'win';
@@ -257,7 +302,7 @@ function resolveRound(roomId) {
 
         p.outcome = outcome;
         io.to(p.id).emit('updateBalance', users[p.name].gems);
-        io.to(p.id).emit('roundResult', { outcome, score: p.score, dealerScore });
+        io.to(p.id).emit('roundResult', { outcome, score: p.score, dealerScore, isBlackjack: outcome === 'blackjack' });
     });
 
     io.to(roomId).emit('updateGame', sanitizeRoom(room));
@@ -295,6 +340,7 @@ function resolveRound(roomId) {
         });
 
         io.to(roomId).emit('updateGame', sanitizeRoom(room));
+        broadcastLobby();
 
         if (room.players.some(p => p.status === 'ready')) {
             startRoomTimer(roomId);
@@ -302,12 +348,31 @@ function resolveRound(roomId) {
     }, 6000);
 }
 
-function createDeck() {
+function createShoe(numDecks = 7) {
     const suits = ['♠', '♥', '♦', '♣'];
     const values = ['2','3','4','5','6','7','8','9','10','J','Q','K','A'];
     let deck = [];
-    suits.forEach(s => values.forEach(v => deck.push({ suit: s, value: v })));
-    return deck.sort(() => Math.random() - 0.5);
+    for (let d = 0; d < numDecks; d++) {
+        suits.forEach(s => values.forEach(v => deck.push({ suit: s, value: v })));
+    }
+    // Fisher-Yates shuffle
+    for (let i = deck.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [deck[i], deck[j]] = [deck[j], deck[i]];
+    }
+    // Place cut card between 60-75% through the shoe (like a casino)
+    const cutPosition = Math.floor(deck.length * (0.60 + Math.random() * 0.15));
+    deck.cutCard = cutPosition; // cards remaining when reshuffle is triggered
+    return deck;
+}
+
+// Deal from the bottom (pop), reshuffle when cut card is passed
+function dealCard(room) {
+    if (room.deck.length <= (room.deck.cutCard || 0)) {
+        // Reshuffle after the current round ends — flag it
+        room.reshuffleNext = true;
+    }
+    return room.deck.pop();
 }
 
 function calculateScore(hand) {
@@ -319,6 +384,40 @@ function calculateScore(hand) {
     });
     while (score > 21 && aces > 0) { score -= 10; aces--; }
     return score;
+}
+
+function isSoft17(hand) {
+    // Returns true if hand is exactly soft 17 (Ace counted as 11 + 6)
+    let score = 0, aces = 0;
+    hand.forEach(c => {
+        if (['J','Q','K'].includes(c.value)) score += 10;
+        else if (c.value === 'A') { aces++; score += 11; }
+        else score += parseInt(c.value);
+    });
+    while (score > 21 && aces > 0) { score -= 10; aces--; }
+    // Soft 17: score is 17 and at least one ace is still counted as 11
+    let hardScore = 0;
+    hand.forEach(c => {
+        if (['J','Q','K'].includes(c.value)) hardScore += 10;
+        else if (c.value === 'A') hardScore += 1;
+        else hardScore += parseInt(c.value);
+    });
+    return score === 17 && hardScore < 17;
+}
+
+function isBlackjack(hand) {
+    // Natural blackjack: exactly 2 cards totalling 21
+    return hand.length === 2 && calculateScore(hand) === 21;
+}
+
+function broadcastLobby() {
+    io.emit('roomList', Object.keys(rooms).map(name => ({
+        name,
+        fee: rooms[name].entryFee,
+        players: rooms[name].players.length,
+        phase: rooms[name].phase,
+        timeLeft: rooms[name].timeLeft
+    })));
 }
 
 server.listen(process.env.PORT || 10000, () => {
