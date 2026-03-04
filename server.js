@@ -222,6 +222,7 @@ io.on('connection', (socket) => {
         player.hand.push(dealCard(room));
         player.score = calculateScore(player.hand);
         if (player.score > 21) player.status = 'bust';
+        else if (player.score === 21) player.status = 'stood'; // auto-stand on 21
         io.to(roomId).emit('updateGame', sanitizeRoom(room));
         checkAutoProceed(roomId);
     });
@@ -395,6 +396,7 @@ function resolveRound(roomId) {
             outcome = 'push';
             users[p.name].gems += p.bet;
         } else if (playerBJ) {
+            // Natural blackjack pays 3:2
             outcome = 'blackjack';
             users[p.name].gems += p.bet + Math.floor(p.bet * 1.5);
         } else if (dealerBJ) {
@@ -405,6 +407,15 @@ function resolveRound(roomId) {
         } else if (p.score === dealerScore) {
             outcome = 'push';
             users[p.name].gems += p.bet;
+        } else {
+            // p.score < dealerScore
+            outcome = 'lose';
+        }
+
+        // Safety net: if player somehow still has status 'playing' here, treat as stood
+        // (should never happen after the auto-stand fixes, but guards against edge cases)
+        if (p.status === 'playing') {
+            console.warn(`Player ${p.name} had status 'playing' during resolveRound — score: ${p.score}`);
         }
 
         p.outcome = outcome;
@@ -478,7 +489,11 @@ function isSoft17(hand) {
 }
 
 function isBlackjack(hand) {
-    return hand.length === 2 && calculateScore(hand) === 21;
+    // Natural blackjack: exactly 2 cards dealt totalling 21 (Ace + 10-value)
+    if (hand.length !== 2) return false;
+    const hasAce = hand.some(c => c.value === 'A');
+    const hasTen = hand.some(c => ['10','J','Q','K'].includes(c.value));
+    return hasAce && hasTen;
 }
 
 function broadcastLobby(targetSocket) {
