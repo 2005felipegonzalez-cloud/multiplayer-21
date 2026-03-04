@@ -4,44 +4,84 @@
     <title>Multiplayer 21</title>
     <script src="/socket.io/socket.io.js"></script>
     <style>
-        body { font-family: sans-serif; background: #1a472a; color: white; text-align: center; }
-        .card { display: inline-block; padding: 10px; background: white; color: black; border-radius: 5px; margin: 5px; }
+        body { font-family: 'Segoe UI', sans-serif; background: #0e331a; color: white; text-align: center; }
+        .card { display: inline-block; width: 40px; height: 60px; background: white; color: black; border-radius: 5px; margin: 5px; line-height: 60px; font-weight: bold; border: 2px solid #000; }
+        .room-btn { background: #28a745; border: none; padding: 10px; color: white; margin: 5px; cursor: pointer; border-radius: 5px; }
+        #dealer-area { border-bottom: 2px solid gold; padding: 20px; margin-bottom: 20px; }
+        .bust { color: #ff4d4d; }
     </style>
 </head>
 <body>
-    <h1>Room: <span id="roomDisplay">None</span></h1>
-    <input id="roomInput" placeholder="Enter Room ID">
-    <button onclick="join()">Join Game</button>
-    
+    <div id="lobby">
+        <h1>Welcome to the Casino</h1>
+        <input id="roomInput" placeholder="New Room Name">
+        <button onclick="join(document.getElementById('roomInput').value)" class="room-btn">Create Room</button>
+        <h3>Open Rooms:</h3>
+        <div id="roomList"></div>
+    </div>
+
     <div id="gameArea" style="display:none;">
+        <div id="dealer-area">
+            <h2>Dealer</h2>
+            <div id="dealerCards"></div>
+            <p>Dealer Score: <span id="dealerScore">?</span></p>
+        </div>
+        
         <div id="players"></div>
-        <button onclick="hit()">Hit</button>
+        <hr>
+        <button onclick="hit()" id="hitBtn">Hit</button>
+        <button onclick="stand()" id="standBtn">Stand</button>
+        <button onclick="start()" id="startBtn">Deal Cards</button>
+        <h2 id="result"></h2>
     </div>
 
     <script>
         const socket = io();
         let currentRoom = "";
 
-        function join() {
-            currentRoom = document.getElementById('roomInput').value;
-            socket.emit('joinRoom', currentRoom);
-            document.getElementById('roomDisplay').innerText = currentRoom;
+        socket.on('roomList', (rooms) => {
+            const list = document.getElementById('roomList');
+            list.innerHTML = rooms.length ? "" : "No active rooms. Create one!";
+            rooms.forEach(r => {
+                list.innerHTML += `<button class="room-btn" onclick="join('${r}')">Join ${r}</button>`;
+            });
+        });
+
+        function join(room) {
+            if (!room) return;
+            currentRoom = room;
+            socket.emit('joinRoom', room);
+            document.getElementById('lobby').style.display = "none";
             document.getElementById('gameArea').style.display = "block";
         }
 
-        function hit() {
-            socket.emit('hit', currentRoom);
-        }
+        function start() { socket.emit('startGame', currentRoom); }
+        function hit() { socket.emit('hit', currentRoom); }
+        function stand() { socket.emit('stand', currentRoom); }
 
-        socket.on('updatePlayers', (players) => {
-            const div = document.getElementById('players');
-            div.innerHTML = players.map(p => `
-                <div>
-                    <h3>Player ${p.id.substring(0,4)}</h3>
-                    <p>Score: ${p.score}</p>
-                    ${p.hand.map(c => `<div class="card">${c.value}${c.suit}</div>`).join('')}
+        socket.on('updateGame', (room) => {
+            // Update Dealer
+            const dDiv = document.getElementById('dealerCards');
+            dDiv.innerHTML = room.dealer.hand.map(c => `<div class="card">${c.value}${c.suit}</div>`).join('');
+            document.getElementById('dealerScore').innerText = room.dealer.score;
+
+            // Update Players
+            const pDiv = document.getElementById('players');
+            pDiv.innerHTML = room.players.map(p => `
+                <div style="margin: 10px; padding: 10px; border: 1px solid #555;">
+                    <h3>Player ${p.id.substring(0,4)} ${p.id === socket.id ? '(You)' : ''}</h3>
+                    <div class="cards">${p.hand.map(c => `<div class="card">${c.value}${c.suit}</div>`).join('')}</div>
+                    <p class="${p.status}">Score: ${p.score} [${p.status.toUpperCase()}]</p>
                 </div>
             `).join('');
+            
+            document.getElementById('startBtn').style.display = room.gameStarted ? "none" : "inline";
+        });
+
+        socket.on('gameOver', (msg) => {
+            document.getElementById('result').innerText = msg;
+            document.getElementById('startBtn').style.display = "inline";
+            document.getElementById('startBtn').innerText = "Play Again";
         });
     </script>
 </body>
