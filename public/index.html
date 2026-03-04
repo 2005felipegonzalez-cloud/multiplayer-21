@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Multiplayer 21</title>
+    <script src="/socket.io/socket.io.js"></script>
+    <style>
+        body { font-family: sans-serif; background: #1a472a; color: white; text-align: center; }
+        .card { display: inline-block; padding: 10px; background: white; color: black; border-radius: 5px; margin: 5px; }
+    </style>
+</head>
+<body>
+    <h1>Room: <span id="roomDisplay">None</span></h1>
+    <input id="roomInput" placeholder="Enter Room ID">
+    <button onclick="join()">Join Game</button>
+    
+    <div id="gameArea" style="display:none;">
+        <div id="players"></div>
+        <button onclick="hit()">Hit</button>
+    </div>
+
+    <script>
+        const socket = io();
+        let currentRoom = "";
+
+        function join() {
+            currentRoom = document.getElementById('roomInput').value;
+            socket.emit('joinRoom', currentRoom);
+            document.getElementById('roomDisplay').innerText = currentRoom;
+            document.getElementById('gameArea').style.display = "block";
+        }
+
+        function hit() {
+            socket.emit('hit', currentRoom);
+        }
+
+        socket.on('updatePlayers', (players) => {
+            const div = document.getElementById('players');
+            div.innerHTML = players.map(p => `
+                <div>
+                    <h3>Player ${p.id.substring(0,4)}</h3>
+                    <p>Score: ${p.score}</p>
+                    ${p.hand.map(c => `<div class="card">${c.value}${c.suit}</div>`).join('')}
+                </div>
+            `).join('');
+        });
+    </script>
+</body>
+</html>
